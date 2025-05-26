@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Heart, X, MapPin, GraduationCap } from 'lucide-react';
+import { Heart, X, GraduationCap } from 'lucide-react';
 
 interface ProfileCardProps {
   profile: {
@@ -14,20 +14,25 @@ interface ProfileCardProps {
   };
   onLike: (id: string) => void;
   onSkip: (id: string) => void;
+  disabled?: boolean;
 }
 
-const ProfileCard = ({ profile, onLike, onSkip }: ProfileCardProps) => {
+const ProfileCard = ({ profile, onLike, onSkip, disabled = false }: ProfileCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const handleAction = (action: 'like' | 'skip') => {
+  const handleAction = async (action: 'like' | 'skip') => {
+    if (disabled) return;
+    
     setIsAnimating(true);
+    
+    if (action === 'like') {
+      await onLike(profile.id);
+    } else {
+      onSkip(profile.id);
+    }
+    
     setTimeout(() => {
-      if (action === 'like') {
-        onLike(profile.id);
-      } else {
-        onSkip(profile.id);
-      }
       setIsAnimating(false);
     }, 300);
   };
@@ -101,7 +106,7 @@ const ProfileCard = ({ profile, onLike, onSkip }: ProfileCardProps) => {
       <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-6">
         <button
           onClick={() => handleAction('skip')}
-          disabled={isAnimating}
+          disabled={disabled || isAnimating}
           className="group w-16 h-16 bg-gray-800/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gray-700/90 hover:scale-110 active:scale-95 shadow-xl border border-gray-600/50 disabled:opacity-50"
         >
           <X size={28} className="text-gray-300 group-hover:text-white transition-colors" />
@@ -109,7 +114,7 @@ const ProfileCard = ({ profile, onLike, onSkip }: ProfileCardProps) => {
         
         <button
           onClick={() => handleAction('like')}
-          disabled={isAnimating}
+          disabled={disabled || isAnimating}
           className="group w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-xl hover:shadow-red-500/30 disabled:opacity-50"
         >
           <Heart size={28} className="text-white group-hover:scale-110 transition-transform" fill="white" />

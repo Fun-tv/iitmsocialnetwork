@@ -186,6 +186,39 @@ const OnboardingFlow = () => {
     });
   };
 
+  const handleComplete = async () => {
+    setLoading(true);
+    try {
+      // Mark onboarding as fully complete (step 4)
+      const { error } = await updateOnboardingProgress(4, formData);
+      if (error) {
+        toast({
+          title: 'Completion Failed',
+          description: 'Failed to complete onboarding',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Welcome!',
+          description: 'Your profile is complete. Redirecting to dashboard...',
+        });
+        // Let the ProtectedRoute handle the redirect naturally
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Completion error:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 0:
@@ -341,10 +374,11 @@ const OnboardingFlow = () => {
               </p>
             </div>
             <Button
-              onClick={() => window.location.reload()}
+              onClick={handleComplete}
+              disabled={loading}
               className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
             >
-              Get Started
+              {loading ? 'Setting up...' : 'Get Started'}
             </Button>
           </div>
         );

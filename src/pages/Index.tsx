@@ -11,12 +11,16 @@ import PremiumTab from '../components/PremiumTab';
 const Index = () => {
   const [activeTab, setActiveTab] = useState('discover');
 
+  const handleStartChatFromMatch = (matchId: string) => {
+    setActiveTab('messages');
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case 'discover':
         return <DiscoverTab />;
       case 'matches':
-        return <MatchesTab />;
+        return <MatchesTab onStartChat={handleStartChatFromMatch} />;
       case 'messages':
         return <MessagesTab />;
       case 'profile':
