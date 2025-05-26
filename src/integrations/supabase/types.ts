@@ -9,7 +9,93 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      onboarding_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          step_completed: number | null
+          steps_data: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          step_completed?: number | null
+          steps_data?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          step_completed?: number | null
+          steps_data?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          academic_year: Database["public"]["Enums"]["academic_year"] | null
+          age: number | null
+          bio: string | null
+          created_at: string | null
+          department: string | null
+          email: string
+          full_name: string | null
+          gender: Database["public"]["Enums"]["gender_type"] | null
+          id: string
+          interests: string[] | null
+          is_profile_complete: boolean | null
+          profile_picture_url: string | null
+          roll_number: string | null
+          updated_at: string | null
+          verification_status:
+            | Database["public"]["Enums"]["verification_status"]
+            | null
+        }
+        Insert: {
+          academic_year?: Database["public"]["Enums"]["academic_year"] | null
+          age?: number | null
+          bio?: string | null
+          created_at?: string | null
+          department?: string | null
+          email: string
+          full_name?: string | null
+          gender?: Database["public"]["Enums"]["gender_type"] | null
+          id: string
+          interests?: string[] | null
+          is_profile_complete?: boolean | null
+          profile_picture_url?: string | null
+          roll_number?: string | null
+          updated_at?: string | null
+          verification_status?:
+            | Database["public"]["Enums"]["verification_status"]
+            | null
+        }
+        Update: {
+          academic_year?: Database["public"]["Enums"]["academic_year"] | null
+          age?: number | null
+          bio?: string | null
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          full_name?: string | null
+          gender?: Database["public"]["Enums"]["gender_type"] | null
+          id?: string
+          interests?: string[] | null
+          is_profile_complete?: boolean | null
+          profile_picture_url?: string | null
+          roll_number?: string | null
+          updated_at?: string | null
+          verification_status?:
+            | Database["public"]["Enums"]["verification_status"]
+            | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +104,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      academic_year:
+        | "1st_year"
+        | "2nd_year"
+        | "3rd_year"
+        | "4th_year"
+        | "mtech"
+        | "phd"
+        | "other"
+      gender_type: "male" | "female" | "other" | "prefer_not_to_say"
+      verification_status: "pending" | "verified" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +228,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      academic_year: [
+        "1st_year",
+        "2nd_year",
+        "3rd_year",
+        "4th_year",
+        "mtech",
+        "phd",
+        "other",
+      ],
+      gender_type: ["male", "female", "other", "prefer_not_to_say"],
+      verification_status: ["pending", "verified", "rejected"],
+    },
   },
 } as const
