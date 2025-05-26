@@ -39,10 +39,11 @@ export const validatePassword = (password: string): { isValid: boolean; errors: 
   };
 };
 
-export const validateRollNumber = (rollNumber: string, academicYear: string): boolean => {
-  if (!rollNumber || rollNumber.length < 6) return false;
+// Simplified roll number validation - just check if it's not empty and has reasonable length
+export const validateRollNumber = (rollNumber: string): boolean => {
+  if (!rollNumber || rollNumber.trim().length < 3) return false;
   
-  // Basic validation - can be enhanced based on IITM roll number patterns
-  const rollPattern = /^[A-Z]{2}\d{2}[A-Z]\d{3}$/i;
-  return rollPattern.test(rollNumber.replace(/\s/g, ''));
+  // Very basic validation - just ensure it's alphanumeric and reasonable length
+  const basicPattern = /^[A-Za-z0-9]+$/;
+  return basicPattern.test(rollNumber.replace(/\s/g, '')) && rollNumber.length <= 20;
 };

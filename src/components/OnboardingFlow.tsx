@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { validateRollNumber } from '@/utils/validation';
 import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 
 const OnboardingFlow = () => {
@@ -93,13 +92,6 @@ const OnboardingFlow = () => {
             toast({
               title: 'Required Fields',
               description: 'Please fill in all academic details',
-              variant: 'destructive',
-            });
-            isValid = false;
-          } else if (!validateRollNumber(formData.roll_number, formData.academic_year)) {
-            toast({
-              title: 'Invalid Roll Number',
-              description: 'Please enter a valid IITM roll number',
               variant: 'destructive',
             });
             isValid = false;
@@ -256,6 +248,7 @@ const OnboardingFlow = () => {
                 placeholder="e.g., Computer Science and Engineering"
                 required
               />
+              <p className="text-xs text-gray-400 mt-1">Enter your department name as you know it</p>
             </div>
 
             <div>
@@ -283,9 +276,10 @@ const OnboardingFlow = () => {
                 value={formData.roll_number}
                 onChange={(e) => setFormData({...formData, roll_number: e.target.value})}
                 className="bg-gray-700 border-gray-600 text-white"
-                placeholder="e.g., CS21B1001"
+                placeholder="e.g., CS21B1001, ME20M1005, etc."
                 required
               />
+              <p className="text-xs text-gray-400 mt-1">Enter your roll number in any format</p>
             </div>
           </div>
         );
