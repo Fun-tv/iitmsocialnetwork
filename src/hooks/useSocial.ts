@@ -71,13 +71,18 @@ export const useSocial = () => {
 
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
       
-      const { data: profiles, error } = await supabase
+      let query = supabase
         .from('profiles')
         .select('*')
         .eq('is_profile_complete', true)
-        .neq('id', user.id)
-        .not('id', 'in', `(${likedIds.length > 0 ? likedIds.join(',') : 'null'})`)
-        .limit(10);
+        .neq('id', user.id);
+
+      // Only add the filter if there are liked IDs
+      if (likedIds.length > 0) {
+        query = query.not('id', 'in', `(${likedIds.join(',')})`);
+      }
+
+      const { data: profiles, error } = await query.limit(10);
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
@@ -157,11 +162,7 @@ export const useSocial = () => {
     try {
       const { data: matchData, error } = await supabase
         .from('matches')
-        .select(`
-          *,
-          profiles!matches_user1_id_fkey(*),
-          profiles!matches_user2_id_fkey(*)
-        `)
+        .select('*')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
 
       if (error) {
@@ -169,15 +170,45 @@ export const useSocial = () => {
         return;
       }
 
-      const formattedMatches = matchData?.map(match => {
+      if (!matchData || matchData.length === 0) {
+        setMatches([]);
+        return;
+      }
+
+      // Get the other user IDs from matches
+      const otherUserIds = matchData.map(match => 
+        match.user1_id === user.id ? match.user2_id : match.user1_id
+      );
+
+      // Fetch profiles for these users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', otherUserIds);
+
+      if (profilesError) {
+        console.error('Error fetching match profiles:', profilesError);
+        return;
+      }
+
+      // Combine match data with profiles
+      const formattedMatches = matchData.map(match => {
         const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
-        const profile = match.user1_id === user.id ? match.profiles[1] : match.profiles[0];
+        const profile = profiles?.find(p => p.id === otherUserId);
         
         return {
           ...match,
-          profile
+          profile: profile || {
+            id: otherUserId,
+            full_name: 'Unknown User',
+            age: 0,
+            department: 'Unknown',
+            academic_year: 'Unknown',
+            bio: '',
+            interests: []
+          }
         };
-      }) || [];
+      });
 
       setMatches(formattedMatches);
     } catch (error) {
@@ -194,8 +225,6 @@ export const useSocial = () => {
         .from('conversations')
         .select(`
           *,
-          profiles!conversations_user1_id_fkey(*),
-          profiles!conversations_user2_id_fkey(*),
           messages(content, created_at, sender_id)
         `)
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
@@ -206,10 +235,39 @@ export const useSocial = () => {
         return;
       }
 
+      if (!convData || convData.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      // Get the other user IDs from conversations
+      const otherUserIds = convData.map(conv => 
+        conv.user1_id === user.id ? conv.user2_id : conv.user1_id
+      );
+
+      // Fetch profiles for these users
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', otherUserIds);
+
+      if (profilesError) {
+        console.error('Error fetching conversation profiles:', profilesError);
+        return;
+      }
+
       const formattedConversations = await Promise.all(
-        (convData || []).map(async conv => {
+        convData.map(async conv => {
           const otherUserId = conv.user1_id === user.id ? conv.user2_id : conv.user1_id;
-          const profile = conv.user1_id === user.id ? conv.profiles[1] : conv.profiles[0];
+          const profile = profiles?.find(p => p.id === otherUserId) || {
+            id: otherUserId,
+            full_name: 'Unknown User',
+            age: 0,
+            department: 'Unknown',
+            academic_year: 'Unknown',
+            bio: '',
+            interests: []
+          };
           
           // Get last message
           const lastMessage = conv.messages?.length > 0 

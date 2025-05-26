@@ -1,294 +1,197 @@
-
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { X, Upload, Heart, MessageCircle, Users, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 
 const OnboardingFlow = () => {
-  const { profile, onboardingProgress, updateProfile, updateOnboardingProgress } = useProfile();
+  const { user } = useAuth();
+  const { profile, updateProfile } = useProfile();
   const { toast } = useToast();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  // Form data state
+  const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     full_name: '',
-    gender: '',
     age: '',
     department: '',
     academic_year: '',
-    roll_number: '',
+    gender: '',
     bio: '',
     interests: [] as string[],
+    roll_number: '',
+    profile_picture_url: ''
   });
 
-  const [newInterest, setNewInterest] = useState('');
+  const [availableInterests] = useState([
+    'Technology', 'Sports', 'Music', 'Art', 'Reading', 'Gaming', 'Movies', 'Travel',
+    'Photography', 'Cooking', 'Dancing', 'Fitness', 'Science', 'Fashion', 'Nature',
+    'Programming', 'Design', 'Writing', 'Languages', 'Volunteering'
+  ]);
 
   useEffect(() => {
-    if (onboardingProgress) {
-      setCurrentStep(onboardingProgress.step_completed);
-    }
     if (profile) {
       setFormData({
         full_name: profile.full_name || '',
-        gender: profile.gender || '',
         age: profile.age?.toString() || '',
         department: profile.department || '',
         academic_year: profile.academic_year || '',
-        roll_number: profile.roll_number || '',
+        gender: profile.gender || '',
         bio: profile.bio || '',
         interests: profile.interests || [],
+        roll_number: profile.roll_number || '',
+        profile_picture_url: profile.profile_picture_url || ''
       });
     }
-  }, [profile, onboardingProgress]);
+  }, [profile]);
 
-  const steps = [
-    { title: 'Personal Info', description: 'Tell us about yourself' },
-    { title: 'Academic Details', description: 'Your IITM academic information' },
-    { title: 'Profile & Interests', description: 'Complete your profile' },
-    { title: 'Welcome!', description: 'You\'re all set!' },
-  ];
-
-  const handleNext = async () => {
-    setLoading(true);
-    try {
-      let isValid = true;
-      let updateData = {};
-
-      switch (currentStep) {
-        case 0:
-          if (!formData.full_name || !formData.gender || !formData.age) {
-            toast({
-              title: 'Required Fields',
-              description: 'Please fill in all required fields',
-              variant: 'destructive',
-            });
-            isValid = false;
-          } else if (parseInt(formData.age) < 16 || parseInt(formData.age) > 100) {
-            toast({
-              title: 'Invalid Age',
-              description: 'Please enter a valid age between 16 and 100',
-              variant: 'destructive',
-            });
-            isValid = false;
-          } else {
-            updateData = {
-              full_name: formData.full_name,
-              gender: formData.gender as any,
-              age: parseInt(formData.age),
-            };
-          }
-          break;
-
-        case 1:
-          if (!formData.department || !formData.academic_year || !formData.roll_number) {
-            toast({
-              title: 'Required Fields',
-              description: 'Please fill in all academic details',
-              variant: 'destructive',
-            });
-            isValid = false;
-          } else {
-            updateData = {
-              department: formData.department,
-              academic_year: formData.academic_year as any,
-              roll_number: formData.roll_number.toUpperCase(),
-            };
-          }
-          break;
-
-        case 2:
-          if (!formData.bio || formData.interests.length === 0) {
-            toast({
-              title: 'Required Fields',
-              description: 'Please add a bio and at least one interest',
-              variant: 'destructive',
-            });
-            isValid = false;
-          } else {
-            updateData = {
-              bio: formData.bio,
-              interests: formData.interests,
-              is_profile_complete: true,
-            };
-          }
-          break;
-      }
-
-      if (isValid) {
-        if (Object.keys(updateData).length > 0) {
-          const { error } = await updateProfile(updateData);
-          if (error) {
-            toast({
-              title: 'Update Failed',
-              description: typeof error === 'string' ? error : error.message,
-              variant: 'destructive',
-            });
-            return;
-          }
-        }
-
-        const { error: progressError } = await updateOnboardingProgress(currentStep + 1, formData);
-        if (progressError) {
-          toast({
-            title: 'Progress Update Failed',
-            description: typeof progressError === 'string' ? progressError : progressError.message,
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        setCurrentStep(currentStep + 1);
-        toast({
-          title: 'Progress Saved',
-          description: `Step ${currentStep + 1} completed successfully!`,
-        });
-      }
-    } catch (error) {
-      console.error('Onboarding error:', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+  const handleInputChange = (field: string, value: string | string[]) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const addInterest = () => {
-    if (newInterest.trim() && !formData.interests.includes(newInterest.trim())) {
-      setFormData({
-        ...formData,
-        interests: [...formData.interests, newInterest.trim()],
-      });
-      setNewInterest('');
+  const addInterest = (interest: string) => {
+    if (!formData.interests.includes(interest) && formData.interests.length < 10) {
+      handleInputChange('interests', [...formData.interests, interest]);
     }
   };
 
   const removeInterest = (interest: string) => {
-    setFormData({
-      ...formData,
-      interests: formData.interests.filter(i => i !== interest),
-    });
+    handleInputChange('interests', formData.interests.filter(i => i !== interest));
   };
 
-  const handleComplete = async () => {
-    setLoading(true);
-    try {
-      // Mark onboarding as fully complete (step 4)
-      const { error } = await updateOnboardingProgress(4, formData);
-      if (error) {
-        toast({
-          title: 'Completion Failed',
-          description: 'Failed to complete onboarding',
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Welcome!',
-          description: 'Your profile is complete. Redirecting to dashboard...',
-        });
-        // Let the ProtectedRoute handle the redirect naturally
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      }
-    } catch (error) {
-      console.error('Completion error:', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
+  const nextStep = async () => {
+    if (currentStep < 4) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      // Complete onboarding
+      await completeOnboarding();
     }
   };
 
-  const renderStepContent = () => {
+  const prevStep = () => {
+    if (currentStep > 1) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const completeOnboarding = async () => {
+    if (!user) return;
+
+    try {
+      // Update profile with all form data
+      const profileData = {
+        full_name: formData.full_name,
+        age: parseInt(formData.age),
+        department: formData.department,
+        academic_year: formData.academic_year,
+        gender: formData.gender,
+        bio: formData.bio,
+        interests: formData.interests,
+        roll_number: formData.roll_number,
+        profile_picture_url: formData.profile_picture_url,
+        is_profile_complete: true
+      };
+
+      await updateProfile(profileData);
+
+      // Mark onboarding as complete (step 4)
+      await supabase
+        .from('onboarding_progress')
+        .update({ 
+          step_completed: 4,
+          completed_at: new Date().toISOString(),
+          steps_data: formData
+        })
+        .eq('user_id', user.id);
+
+      toast({
+        title: '🎉 Welcome to UniConnect!',
+        description: 'Your profile is complete. Start discovering amazing people!',
+      });
+
+      // Force page reload to trigger proper navigation
+      window.location.reload();
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to complete onboarding. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const validateStep = () => {
     switch (currentStep) {
-      case 0:
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="full_name" className="text-gray-300">Full Name *</Label>
+      case 1:
+        return formData.full_name && formData.age && formData.department && formData.academic_year;
+      case 2:
+        return formData.gender && formData.roll_number;
+      case 3:
+        return formData.bio && formData.interests.length >= 3;
+      case 4:
+        return true; // Final step - always valid
+      default:
+        return false;
+    }
+  };
+
+  if (currentStep === 1) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-white">Basic Information</CardTitle>
+            <p className="text-gray-300">Tell us about yourself</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="full_name" className="text-white">Full Name</Label>
               <Input
                 id="full_name"
                 value={formData.full_name}
-                onChange={(e) => setFormData({...formData, full_name: e.target.value})}
-                className="bg-gray-700 border-gray-600 text-white"
+                onChange={(e) => handleInputChange('full_name', e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder-gray-300"
                 placeholder="Enter your full name"
-                required
               />
             </div>
-            
-            <div>
-              <Label htmlFor="gender" className="text-gray-300">Gender *</Label>
-              <Select value={formData.gender} onValueChange={(value) => setFormData({...formData, gender: value})}>
-                <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                  <SelectValue placeholder="Select your gender" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div>
-              <Label htmlFor="age" className="text-gray-300">Age *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="age" className="text-white">Age</Label>
               <Input
                 id="age"
                 type="number"
-                min="16"
-                max="100"
                 value={formData.age}
-                onChange={(e) => setFormData({...formData, age: e.target.value})}
-                className="bg-gray-700 border-gray-600 text-white"
+                onChange={(e) => handleInputChange('age', e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder-gray-300"
                 placeholder="Enter your age"
-                required
+                min="18"
+                max="30"
               />
             </div>
-          </div>
-        );
 
-      case 1:
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="department" className="text-gray-300">Department *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="department" className="text-white">Department</Label>
               <Input
                 id="department"
                 value={formData.department}
-                onChange={(e) => setFormData({...formData, department: e.target.value})}
-                className="bg-gray-700 border-gray-600 text-white"
-                placeholder="e.g., Computer Science and Engineering"
-                required
+                onChange={(e) => handleInputChange('department', e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder-gray-300"
+                placeholder="e.g., Computer Science"
               />
-              <p className="text-xs text-gray-400 mt-1">Enter your department name as you know it</p>
             </div>
 
-            <div>
-              <Label htmlFor="academic_year" className="text-gray-300">Academic Year *</Label>
-              <Select value={formData.academic_year} onValueChange={(value) => setFormData({...formData, academic_year: value})}>
-                <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                  <SelectValue placeholder="Select your academic year" />
+            <div className="space-y-2">
+              <Label htmlFor="academic_year" className="text-white">Academic Year</Label>
+              <Select value={formData.academic_year} onValueChange={(value) => handleInputChange('academic_year', value)}>
+                <SelectTrigger className="bg-white/20 border-white/30 text-white">
+                  <SelectValue placeholder="Select your year" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1st_year">1st Year</SelectItem>
@@ -302,162 +205,217 @@ const OnboardingFlow = () => {
               </Select>
             </div>
 
-            <div>
-              <Label htmlFor="roll_number" className="text-gray-300">Roll Number *</Label>
-              <Input
-                id="roll_number"
-                value={formData.roll_number}
-                onChange={(e) => setFormData({...formData, roll_number: e.target.value})}
-                className="bg-gray-700 border-gray-600 text-white"
-                placeholder="e.g., CS21B1001, ME20M1005, etc."
-                required
-              />
-              <p className="text-xs text-gray-400 mt-1">Enter your roll number in any format</p>
-            </div>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="bio" className="text-gray-300">Bio *</Label>
-              <Textarea
-                id="bio"
-                value={formData.bio}
-                onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                className="bg-gray-700 border-gray-600 text-white"
-                placeholder="Tell others about yourself, your hobbies, what you're looking for..."
-                rows={4}
-                required
-              />
-            </div>
-
-            <div>
-              <Label className="text-gray-300">Interests *</Label>
-              <div className="flex gap-2 mt-2">
-                <Input
-                  value={newInterest}
-                  onChange={(e) => setNewInterest(e.target.value)}
-                  className="bg-gray-700 border-gray-600 text-white"
-                  placeholder="Add an interest"
-                  onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addInterest())}
-                />
-                <Button type="button" onClick={addInterest} variant="outline">
-                  Add
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2 mt-3">
-                {formData.interests.map((interest, index) => (
-                  <Badge
-                    key={index}
-                    variant="secondary"
-                    className="bg-red-500/20 text-red-300 border-red-500/30 cursor-pointer"
-                    onClick={() => removeInterest(interest)}
-                  >
-                    {interest} ×
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="text-center space-y-6">
-            <CheckCircle className="w-16 h-16 text-green-400 mx-auto" />
-            <div>
-              <h3 className="text-2xl font-bold text-white mb-2">Welcome to IITM Social Network!</h3>
-              <p className="text-gray-300">
-                Your profile is complete and you're ready to start connecting with fellow IITM students.
-              </p>
-            </div>
-            <Button
-              onClick={handleComplete}
-              disabled={loading}
-              className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
+            <Button 
+              onClick={nextStep} 
+              disabled={!validateStep()}
+              className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
             >
-              {loading ? 'Setting up...' : 'Get Started'}
+              Continue
             </Button>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl">
-        {/* Progress Bar */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            {steps.map((step, index) => (
-              <div
-                key={index}
-                className={`flex items-center ${index < steps.length - 1 ? 'flex-1' : ''}`}
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    index <= currentStep
-                      ? 'bg-red-500 text-white'
-                      : 'bg-gray-700 text-gray-400'
-                  }`}
-                >
-                  {index < currentStep ? '✓' : index + 1}
-                </div>
-                {index < steps.length - 1 && (
-                  <div
-                    className={`flex-1 h-1 mx-4 ${
-                      index < currentStep ? 'bg-red-500' : 'bg-gray-700'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Step Content */}
-        <Card className="bg-gray-800 border-gray-700">
-          <CardHeader className="text-center">
-            <CardTitle className="text-white">{steps[currentStep]?.title}</CardTitle>
-            <CardDescription className="text-gray-400">
-              {steps[currentStep]?.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {renderStepContent()}
-            
-            {currentStep < 3 && (
-              <div className="flex justify-between mt-8">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentStep === 0}
-                  className="border-gray-600 text-gray-300"
-                >
-                  <ChevronLeft className="w-4 h-4 mr-2" />
-                  Previous
-                </Button>
-                
-                <Button
-                  onClick={handleNext}
-                  disabled={loading}
-                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700"
-                >
-                  {loading ? 'Saving...' : 'Next'}
-                  <ChevronRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    );
+  }
+
+  if (currentStep === 2) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-white">Personal Details</CardTitle>
+            <p className="text-gray-300">Help others know you better</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="gender" className="text-white">Gender</Label>
+              <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
+                <SelectTrigger className="bg-white/20 border-white/30 text-white">
+                  <SelectValue placeholder="Select your gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="roll_number" className="text-white">Roll Number</Label>
+              <Input
+                id="roll_number"
+                value={formData.roll_number}
+                onChange={(e) => handleInputChange('roll_number', e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder-gray-300"
+                placeholder="Enter your roll number"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="profile_picture" className="text-white">Profile Picture URL (Optional)</Label>
+              <Input
+                id="profile_picture"
+                value={formData.profile_picture_url}
+                onChange={(e) => handleInputChange('profile_picture_url', e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder-gray-300"
+                placeholder="Enter image URL"
+              />
+            </div>
+
+            <div className="flex space-x-2">
+              <Button 
+                onClick={prevStep} 
+                variant="outline"
+                className="flex-1 border-white/30 text-white hover:bg-white/20"
+              >
+                Back
+              </Button>
+              <Button 
+                onClick={nextStep} 
+                disabled={!validateStep()}
+                className="flex-1 bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+              >
+                Continue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (currentStep === 3) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl text-white">About You</CardTitle>
+            <p className="text-gray-300">Share your story and interests</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bio" className="text-white">Bio</Label>
+              <Textarea
+                id="bio"
+                value={formData.bio}
+                onChange={(e) => handleInputChange('bio', e.target.value)}
+                className="bg-white/20 border-white/30 text-white placeholder-gray-300"
+                placeholder="Tell us about yourself..."
+                rows={4}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-white">Interests (Select at least 3)</Label>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {availableInterests.map((interest) => (
+                  <Button
+                    key={interest}
+                    variant={formData.interests.includes(interest) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => 
+                      formData.interests.includes(interest) 
+                        ? removeInterest(interest)
+                        : addInterest(interest)
+                    }
+                    className={
+                      formData.interests.includes(interest)
+                        ? "bg-gradient-to-r from-pink-500 to-violet-500 text-white"
+                        : "border-white/30 text-white hover:bg-white/20"
+                    }
+                  >
+                    {interest}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {formData.interests.map((interest) => (
+                <Badge key={interest} variant="secondary" className="bg-white/20 text-white">
+                  {interest}
+                  <X 
+                    size={14} 
+                    className="ml-1 cursor-pointer" 
+                    onClick={() => removeInterest(interest)}
+                  />
+                </Badge>
+              ))}
+            </div>
+
+            <div className="flex space-x-2">
+              <Button 
+                onClick={prevStep} 
+                variant="outline"
+                className="flex-1 border-white/30 text-white hover:bg-white/20"
+              >
+                Back
+              </Button>
+              <Button 
+                onClick={nextStep} 
+                disabled={!validateStep()}
+                className="flex-1 bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+              >
+                Continue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (currentStep === 4) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white/10 backdrop-blur-lg border-white/20">
+          <CardHeader className="text-center">
+            <div className="mb-4">
+              <Sparkles size={48} className="text-yellow-400 mx-auto mb-4" />
+            </div>
+            <CardTitle className="text-2xl text-white">You're All Set!</CardTitle>
+            <p className="text-gray-300">Welcome to UniConnect</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex items-center space-x-3 text-white">
+                <Heart className="text-red-400" size={20} />
+                <span>Discover amazing people in your university</span>
+              </div>
+              <div className="flex items-center space-x-3 text-white">
+                <Users className="text-blue-400" size={20} />
+                <span>Connect with students who share your interests</span>
+              </div>
+              <div className="flex items-center space-x-3 text-white">
+                <MessageCircle className="text-green-400" size={20} />
+                <span>Start meaningful conversations</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Button 
+                onClick={completeOnboarding}
+                className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 text-lg py-3"
+              >
+                Get Started 🚀
+              </Button>
+              <Button 
+                onClick={prevStep} 
+                variant="outline"
+                className="w-full border-white/30 text-white hover:bg-white/20"
+              >
+                Back
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 export default OnboardingFlow;
