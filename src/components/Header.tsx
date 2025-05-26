@@ -10,7 +10,7 @@ const Header = () => {
           <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-red-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">🔥</span>
           </div>
-          <h1 className="text-white font-bold text-xl">IITSocialNetwork</h1>
+          <h1 className="text-white font-bold text-xl">IITMSocialNetwork</h1>
         </div>
         <button className="p-2 text-gray-400 hover:text-white transition-colors">
           <Search size={20} />
