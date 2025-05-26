@@ -136,7 +136,7 @@ const OnboardingFlow = () => {
           if (error) {
             toast({
               title: 'Update Failed',
-              description: error.message,
+              description: typeof error === 'string' ? error : error.message,
               variant: 'destructive',
             });
             return;
@@ -147,7 +147,7 @@ const OnboardingFlow = () => {
         if (progressError) {
           toast({
             title: 'Progress Update Failed',
-            description: progressError.message,
+            description: typeof progressError === 'string' ? progressError : progressError.message,
             variant: 'destructive',
           });
           return;
