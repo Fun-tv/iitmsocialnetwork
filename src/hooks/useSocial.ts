@@ -56,7 +56,7 @@ export const useSocial = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch profiles for discovery
+  // Fetch profiles for discovery with improved algorithm
   const fetchDiscoveryProfiles = async () => {
     if (!user) return;
 
@@ -71,25 +71,30 @@ export const useSocial = () => {
 
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
       
+      // Build the query
       let query = supabase
         .from('profiles')
         .select('*')
         .eq('is_profile_complete', true)
         .neq('id', user.id);
 
-      // Only add the filter if there are liked IDs
+      // Only add the NOT IN filter if there are liked IDs
       if (likedIds.length > 0) {
         query = query.not('id', 'in', `(${likedIds.join(',')})`);
       }
 
-      const { data: profiles, error } = await query.limit(10);
+      const { data: profiles, error } = await query
+        .order('created_at', { ascending: false })
+        .limit(20); // Increased limit for better variety
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
         return;
       }
 
-      setDiscoveryProfiles(profiles || []);
+      // Shuffle the profiles for variety
+      const shuffledProfiles = profiles?.sort(() => Math.random() - 0.5) || [];
+      setDiscoveryProfiles(shuffledProfiles);
     } catch (error) {
       console.error('Error in fetchDiscoveryProfiles:', error);
     } finally {
@@ -141,8 +146,6 @@ export const useSocial = () => {
         });
       }
 
-      // Remove from discovery
-      setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
       return true;
     } catch (error) {
       console.error('Error in likeProfile:', error);
@@ -155,7 +158,7 @@ export const useSocial = () => {
     setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
   };
 
-  // Fetch matches
+  // Fetch matches with proper error handling
   const fetchMatches = async () => {
     if (!user) return;
 
@@ -216,7 +219,7 @@ export const useSocial = () => {
     }
   };
 
-  // Fetch conversations
+  // Fetch conversations with improved query
   const fetchConversations = async () => {
     if (!user) return;
 
@@ -225,7 +228,11 @@ export const useSocial = () => {
         .from('conversations')
         .select(`
           *,
-          messages(content, created_at, sender_id)
+          messages!inner(
+            content,
+            created_at,
+            sender_id
+          )
         `)
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order('updated_at', { ascending: false });
@@ -269,10 +276,15 @@ export const useSocial = () => {
             interests: []
           };
           
-          // Get last message
-          const lastMessage = conv.messages?.length > 0 
-            ? conv.messages[conv.messages.length - 1] 
-            : null;
+          // Get last message for this conversation
+          const { data: lastMessageData } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          const lastMessage = lastMessageData?.[0] || null;
 
           // Count unread messages
           const { count: unreadCount } = await supabase
@@ -363,11 +375,11 @@ export const useSocial = () => {
     }
   };
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates with fixed filters
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to new matches
+    // Subscribe to new matches - fixed filter syntax
     const matchesChannel = supabase
       .channel('matches-changes')
       .on(
@@ -376,7 +388,19 @@ export const useSocial = () => {
           event: 'INSERT',
           schema: 'public',
           table: 'matches',
-          filter: `user1_id=eq.${user.id},user2_id=eq.${user.id}`
+          filter: `user1_id=eq.${user.id}`
+        },
+        () => {
+          fetchMatches();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'matches',
+          filter: `user2_id=eq.${user.id}`
         },
         () => {
           fetchMatches();

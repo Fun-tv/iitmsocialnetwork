@@ -3,12 +3,15 @@ import React, { useEffect } from 'react';
 import { Heart, MessageCircle } from 'lucide-react';
 import { useSocial } from '@/hooks/useSocial';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface MatchesTabProps {
   onStartChat?: (matchId: string) => void;
 }
 
 const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
+  const { user } = useAuth();
   const { matches, fetchMatches, loading } = useSocial();
   const { toast } = useToast();
 
@@ -16,13 +19,51 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
     fetchMatches();
   }, []);
 
-  const handleStartChat = (matchId: string) => {
-    if (onStartChat) {
-      onStartChat(matchId);
-    } else {
+  const handleStartChat = async (match: any) => {
+    if (!user) return;
+
+    try {
+      // First check if conversation already exists
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .or(`and(user1_id.eq.${user.id},user2_id.eq.${match.profile.id}),and(user1_id.eq.${match.profile.id},user2_id.eq.${user.id})`)
+        .single();
+
+      if (!existingConv) {
+        // Create conversation if it doesn't exist
+        const { error: convError } = await supabase
+          .from('conversations')
+          .insert({
+            user1_id: user.id < match.profile.id ? user.id : match.profile.id,
+            user2_id: user.id < match.profile.id ? match.profile.id : user.id
+          });
+
+        if (convError) {
+          console.error('Error creating conversation:', convError);
+          toast({
+            title: 'Error',
+            description: 'Failed to start conversation',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+
+      if (onStartChat) {
+        onStartChat(match.id);
+      } else {
+        toast({
+          title: 'Chat Ready!',
+          description: 'Navigate to Messages tab to start chatting!',
+        });
+      }
+    } catch (error) {
+      console.error('Error in handleStartChat:', error);
       toast({
-        title: 'Chat Feature',
-        description: 'Navigate to Messages tab to start chatting!',
+        title: 'Error',
+        description: 'Failed to start conversation',
+        variant: 'destructive',
       });
     }
   };
@@ -46,14 +87,17 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
         <div className="text-center py-12">
           <Heart size={48} className="text-gray-600 mx-auto mb-4" />
           <h3 className="text-xl font-semibold text-white mb-2">No matches yet</h3>
-          <p className="text-gray-400">Start swiping to find your connections!</p>
+          <p className="text-gray-400 mb-4">Start swiping to find your connections!</p>
+          <p className="text-gray-500 text-sm">
+            Like someone and when they like you back, you'll have a match and can start chatting!
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
           {matches.map((match) => (
             <div 
               key={match.id}
-              className="bg-gray-800 rounded-2xl p-4 flex items-center space-x-4 hover:bg-gray-700 transition-colors cursor-pointer"
+              className="bg-gray-800 rounded-2xl p-4 flex items-center space-x-4 hover:bg-gray-700 transition-colors"
             >
               <div className="relative">
                 <img 
@@ -70,11 +114,14 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
                 <p className="text-sm text-gray-300">
                   Matched on {new Date(match.created_at).toLocaleDateString()}
                 </p>
+                {match.profile.bio && (
+                  <p className="text-xs text-gray-400 mt-1 line-clamp-1">{match.profile.bio}</p>
+                )}
               </div>
               
               <button 
-                onClick={() => handleStartChat(match.id)}
-                className="p-2 text-red-500 hover:bg-red-500/20 rounded-full transition-colors"
+                onClick={() => handleStartChat(match)}
+                className="p-3 text-red-500 hover:bg-red-500/20 rounded-full transition-colors"
               >
                 <MessageCircle size={20} />
               </button>
