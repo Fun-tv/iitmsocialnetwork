@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -89,8 +90,8 @@ const OnboardingFlow = () => {
         full_name: formData.full_name,
         age: parseInt(formData.age),
         department: formData.department,
-        academic_year: formData.academic_year,
-        gender: formData.gender,
+        academic_year: formData.academic_year as '1st_year' | '2nd_year' | '3rd_year' | '4th_year' | 'mtech' | 'phd' | 'other',
+        gender: formData.gender as 'male' | 'female' | 'other' | 'prefer_not_to_say',
         bio: formData.bio,
         interests: formData.interests,
         roll_number: formData.roll_number,
