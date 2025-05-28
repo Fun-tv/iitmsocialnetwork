@@ -1,11 +1,14 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
+
+type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 
 export const createTestProfiles = async () => {
   try {
     console.log('Creating test profiles for discovery...');
     
-    const testProfiles = [
+    const testProfiles: ProfileInsert[] = [
       {
         id: '11111111-1111-1111-1111-111111111111',
         email: 'alex.student@iitm.ac.in',
@@ -81,6 +84,32 @@ export const createTestProfiles = async () => {
         academic_year: 'phd',
         bio: 'PhD student exploring quantum mechanics. Love astronomy and deep conversations about the universe.',
         interests: ['Physics', 'Astronomy', 'Research', 'Science Fiction'],
+        is_profile_complete: true,
+        verification_status: 'verified'
+      },
+      {
+        id: '77777777-7777-7777-7777-777777777777',
+        email: 'maya.reddy@iitm.ac.in',
+        full_name: 'Maya Reddy',
+        age: 21,
+        gender: 'female',
+        department: 'Civil Engineering',
+        academic_year: '2nd_year',
+        bio: 'Building the future, one structure at a time. Love architecture and sustainable design.',
+        interests: ['Engineering', 'Architecture', 'Sustainability', 'Design'],
+        is_profile_complete: true,
+        verification_status: 'verified'
+      },
+      {
+        id: '88888888-8888-8888-8888-888888888888',
+        email: 'rohit.gupta@iitm.ac.in',
+        full_name: 'Rohit Gupta',
+        age: 23,
+        gender: 'male',
+        department: 'Biotechnology',
+        academic_year: '4th_year',
+        bio: 'Exploring the intersection of biology and technology. Passionate about research and innovation.',
+        interests: ['Biotechnology', 'Research', 'Innovation', 'Health'],
         is_profile_complete: true,
         verification_status: 'verified'
       }
