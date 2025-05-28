@@ -3,8 +3,11 @@ import React, { useState, useEffect } from 'react';
 import ProfileCard from './ProfileCard';
 import { RefreshCw } from 'lucide-react';
 import { useSocial } from '@/hooks/useSocial';
+import { createTestProfiles } from '@/utils/createTestProfiles';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DiscoverTab = () => {
+  const { user } = useAuth();
   const { 
     discoveryProfiles, 
     loading, 
@@ -15,10 +18,26 @@ const DiscoverTab = () => {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [hasTriedCreatingProfiles, setHasTriedCreatingProfiles] = useState(false);
 
   useEffect(() => {
     fetchDiscoveryProfiles();
   }, []);
+
+  // Create test profiles if none are found (only once)
+  useEffect(() => {
+    if (!loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
+      setHasTriedCreatingProfiles(true);
+      console.log('No profiles found, creating test profiles...');
+      createTestProfiles().then((success) => {
+        if (success) {
+          setTimeout(() => {
+            fetchDiscoveryProfiles();
+          }, 1000);
+        }
+      });
+    }
+  }, [loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
 
   const handleLike = async (id: string) => {
     setIsActionLoading(true);
@@ -43,6 +62,7 @@ const DiscoverTab = () => {
 
   const resetStack = () => {
     setCurrentIndex(0);
+    setHasTriedCreatingProfiles(false);
     fetchDiscoveryProfiles();
   };
 
@@ -61,11 +81,14 @@ const DiscoverTab = () => {
     return (
       <div className="flex items-center justify-center h-full text-center p-6">
         <div className="space-y-6">
-          <div className="text-8xl mb-4 animate-bounce">🎉</div>
+          <div className="text-8xl mb-4 animate-bounce">🔍</div>
           <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-white">You're all caught up!</h3>
+            <h3 className="text-2xl font-bold text-white">Looking for connections...</h3>
             <p className="text-gray-400 max-w-sm">
-              You've seen all available profiles. Check back later for new connections or explore your matches!
+              {hasTriedCreatingProfiles 
+                ? "We're setting up some profiles for you to discover. This might take a moment!"
+                : "No profiles available right now. Try refreshing to see new people!"
+              }
             </p>
           </div>
           <button

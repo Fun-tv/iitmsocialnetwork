@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +12,7 @@ interface UserProfile {
   bio: string;
   interests: string[];
   profile_picture_url?: string;
+  gender?: string;
 }
 
 interface Match {
@@ -56,7 +56,7 @@ export const useSocial = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch profiles for discovery with improved algorithm
+  // Enhanced discovery algorithm to show all available profiles
   const fetchDiscoveryProfiles = async () => {
     if (!user) return;
 
@@ -73,46 +73,83 @@ export const useSocial = () => {
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
       console.log('Already liked profiles:', likedIds);
       
-      // Build the query for available profiles
+      // Build the query for available profiles - include ALL genders
       let query = supabase
         .from('profiles')
         .select('*')
         .eq('is_profile_complete', true)
         .neq('id', user.id);
 
-      // Only add the NOT IN filter if there are liked IDs
+      // Only exclude already liked profiles if there are any
       if (likedIds.length > 0) {
         query = query.not('id', 'in', `(${likedIds.join(',')})`);
       }
 
       const { data: profiles, error } = await query
         .order('created_at', { ascending: false })
-        .limit(50); // Increased limit for better variety
+        .limit(100); // Increased limit for better variety
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load profiles. Please try again.',
+          variant: 'destructive',
+        });
         return;
       }
 
       console.log('Found profiles for discovery:', profiles?.length || 0);
       
-      // Shuffle the profiles for variety
-      const shuffledProfiles = profiles?.sort(() => Math.random() - 0.5) || [];
-      setDiscoveryProfiles(shuffledProfiles);
+      if (profiles && profiles.length > 0) {
+        // Enhanced shuffle algorithm for better variety
+        const shuffledProfiles = profiles
+          .map(profile => ({ profile, sort: Math.random() }))
+          .sort((a, b) => a.sort - b.sort)
+          .map(({ profile }) => profile);
+        
+        setDiscoveryProfiles(shuffledProfiles);
+        
+        toast({
+          title: 'Profiles Loaded',
+          description: `Found ${shuffledProfiles.length} people to connect with!`,
+        });
+      } else {
+        setDiscoveryProfiles([]);
+        console.log('No new profiles available for discovery');
+      }
     } catch (error) {
       console.error('Error in fetchDiscoveryProfiles:', error);
+      toast({
+        title: 'Connection Error',
+        description: 'Unable to load profiles. Check your connection.',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  // Like a profile with improved error handling
+  // Enhanced like functionality with better error handling
   const likeProfile = async (profileId: string) => {
     if (!user) return false;
 
     try {
       console.log('Liking profile:', profileId);
       
+      // Check if already liked to prevent duplicates
+      const { data: existingLike } = await supabase
+        .from('user_likes')
+        .select('id')
+        .eq('liker_id', user.id)
+        .eq('liked_id', profileId)
+        .single();
+
+      if (existingLike) {
+        console.log('Profile already liked');
+        return true;
+      }
+
       const { data, error } = await supabase
         .from('user_likes')
         .insert({
@@ -125,7 +162,7 @@ export const useSocial = () => {
         console.error('Error liking profile:', error);
         toast({
           title: 'Error',
-          description: 'Failed to like profile',
+          description: 'Failed to like profile. Please try again.',
           variant: 'destructive',
         });
         return false;
@@ -133,23 +170,23 @@ export const useSocial = () => {
 
       console.log('Successfully liked profile:', data);
 
-      // Check if it's a match (the trigger will handle match creation)
-      const { data: existingLike } = await supabase
+      // Check if it's a mutual match
+      const { data: mutualLike } = await supabase
         .from('user_likes')
         .select('*')
         .eq('liker_id', profileId)
         .eq('liked_id', user.id)
         .single();
 
-      if (existingLike) {
+      if (mutualLike) {
         toast({
           title: '🎉 It\'s a Match!',
           description: 'You can now start chatting!',
         });
-        // Refresh matches after a brief delay to allow trigger to complete
+        // Refresh matches after a brief delay
         setTimeout(() => {
           fetchMatches();
-        }, 1000);
+        }, 1500);
       } else {
         toast({
           title: '❤️ Profile Liked',
@@ -157,15 +194,24 @@ export const useSocial = () => {
         });
       }
 
+      // Remove liked profile from discovery
+      setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
+      
       return true;
     } catch (error) {
       console.error('Error in likeProfile:', error);
+      toast({
+        title: 'Network Error',
+        description: 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      });
       return false;
     }
   };
 
   // Skip a profile
   const skipProfile = (profileId: string) => {
+    console.log('Skipping profile:', profileId);
     setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
   };
 
@@ -441,7 +487,6 @@ export const useSocial = () => {
           
           // Only handle messages not sent by current user
           if (newMessage.sender_id !== user.id) {
-            // Refresh conversations to update last message and unread count
             fetchConversations();
             
             // If viewing the conversation, refresh messages
