@@ -16,6 +16,7 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('MatchesTab mounted, fetching matches...');
     fetchMatches();
   }, []);
 
@@ -23,24 +24,30 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
     if (!user) return;
 
     try {
-      // First check if conversation already exists
-      const { data: existingConv } = await supabase
+      console.log('Starting chat with match:', match);
+      
+      // Check if conversation already exists
+      const { data: existingConv, error: convError } = await supabase
         .from('conversations')
         .select('id')
         .or(`and(user1_id.eq.${user.id},user2_id.eq.${match.profile.id}),and(user1_id.eq.${match.profile.id},user2_id.eq.${user.id})`)
-        .single();
+        .maybeSingle();
+
+      if (convError) {
+        console.error('Error checking existing conversation:', convError);
+      }
 
       if (!existingConv) {
         // Create conversation if it doesn't exist
-        const { error: convError } = await supabase
+        const { error: createError } = await supabase
           .from('conversations')
           .insert({
             user1_id: user.id < match.profile.id ? user.id : match.profile.id,
             user2_id: user.id < match.profile.id ? match.profile.id : user.id
           });
 
-        if (convError) {
-          console.error('Error creating conversation:', convError);
+        if (createError) {
+          console.error('Error creating conversation:', createError);
           toast({
             title: 'Error',
             description: 'Failed to start conversation',

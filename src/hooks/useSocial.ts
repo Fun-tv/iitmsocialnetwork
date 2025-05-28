@@ -62,6 +62,7 @@ export const useSocial = () => {
 
     try {
       setLoading(true);
+      console.log('Fetching discovery profiles for user:', user.id);
       
       // Get profiles that user hasn't liked yet and aren't the current user
       const { data: likedProfiles } = await supabase
@@ -70,8 +71,9 @@ export const useSocial = () => {
         .eq('liker_id', user.id);
 
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
+      console.log('Already liked profiles:', likedIds);
       
-      // Build the query
+      // Build the query for available profiles
       let query = supabase
         .from('profiles')
         .select('*')
@@ -85,13 +87,15 @@ export const useSocial = () => {
 
       const { data: profiles, error } = await query
         .order('created_at', { ascending: false })
-        .limit(20); // Increased limit for better variety
+        .limit(50); // Increased limit for better variety
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
         return;
       }
 
+      console.log('Found profiles for discovery:', profiles?.length || 0);
+      
       // Shuffle the profiles for variety
       const shuffledProfiles = profiles?.sort(() => Math.random() - 0.5) || [];
       setDiscoveryProfiles(shuffledProfiles);
@@ -102,11 +106,13 @@ export const useSocial = () => {
     }
   };
 
-  // Like a profile
+  // Like a profile with improved error handling
   const likeProfile = async (profileId: string) => {
     if (!user) return false;
 
     try {
+      console.log('Liking profile:', profileId);
+      
       const { data, error } = await supabase
         .from('user_likes')
         .insert({
@@ -125,7 +131,9 @@ export const useSocial = () => {
         return false;
       }
 
-      // Check if it's a match
+      console.log('Successfully liked profile:', data);
+
+      // Check if it's a match (the trigger will handle match creation)
       const { data: existingLike } = await supabase
         .from('user_likes')
         .select('*')
@@ -138,7 +146,10 @@ export const useSocial = () => {
           title: '🎉 It\'s a Match!',
           description: 'You can now start chatting!',
         });
-        fetchMatches(); // Refresh matches
+        // Refresh matches after a brief delay to allow trigger to complete
+        setTimeout(() => {
+          fetchMatches();
+        }, 1000);
       } else {
         toast({
           title: '❤️ Profile Liked',
@@ -158,20 +169,25 @@ export const useSocial = () => {
     setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
   };
 
-  // Fetch matches with proper error handling
+  // Fetch matches with improved error handling
   const fetchMatches = async () => {
     if (!user) return;
 
     try {
+      console.log('Fetching matches for user:', user.id);
+      
       const { data: matchData, error } = await supabase
         .from('matches')
         .select('*')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching matches:', error);
         return;
       }
+
+      console.log('Found matches:', matchData?.length || 0);
 
       if (!matchData || matchData.length === 0) {
         setMatches([]);
@@ -213,6 +229,7 @@ export const useSocial = () => {
         };
       });
 
+      console.log('Formatted matches:', formattedMatches);
       setMatches(formattedMatches);
     } catch (error) {
       console.error('Error in fetchMatches:', error);
@@ -224,16 +241,11 @@ export const useSocial = () => {
     if (!user) return;
 
     try {
+      console.log('Fetching conversations for user:', user.id);
+      
       const { data: convData, error } = await supabase
         .from('conversations')
-        .select(`
-          *,
-          messages!inner(
-            content,
-            created_at,
-            sender_id
-          )
-        `)
+        .select('*')
         .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order('updated_at', { ascending: false });
 
@@ -241,6 +253,8 @@ export const useSocial = () => {
         console.error('Error fetching conversations:', error);
         return;
       }
+
+      console.log('Found conversations:', convData?.length || 0);
 
       if (!convData || convData.length === 0) {
         setConversations([]);
@@ -314,6 +328,8 @@ export const useSocial = () => {
     if (!user) return;
 
     try {
+      console.log('Fetching messages for conversation:', conversationId);
+      
       const { data: messageData, error } = await supabase
         .from('messages')
         .select('*')
@@ -325,6 +341,7 @@ export const useSocial = () => {
         return;
       }
 
+      console.log('Found messages:', messageData?.length || 0);
       setMessages(messageData || []);
 
       // Mark messages as read
@@ -344,6 +361,8 @@ export const useSocial = () => {
     if (!user || !content.trim()) return false;
 
     try {
+      console.log('Sending message to conversation:', conversationId);
+      
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -368,6 +387,7 @@ export const useSocial = () => {
         .update({ updated_at: new Date().toISOString() })
         .eq('id', conversationId);
 
+      console.log('Message sent successfully');
       return true;
     } catch (error) {
       console.error('Error in sendMessage:', error);
@@ -379,7 +399,9 @@ export const useSocial = () => {
   useEffect(() => {
     if (!user) return;
 
-    // Subscribe to new matches - fixed filter syntax
+    console.log('Setting up real-time subscriptions for user:', user.id);
+
+    // Subscribe to new matches
     const matchesChannel = supabase
       .channel('matches-changes')
       .on(
@@ -387,23 +409,18 @@ export const useSocial = () => {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'matches',
-          filter: `user1_id=eq.${user.id}`
+          table: 'matches'
         },
-        () => {
-          fetchMatches();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'matches',
-          filter: `user2_id=eq.${user.id}`
-        },
-        () => {
-          fetchMatches();
+        (payload) => {
+          console.log('New match detected:', payload);
+          const newMatch = payload.new as any;
+          if (newMatch.user1_id === user.id || newMatch.user2_id === user.id) {
+            fetchMatches();
+            toast({
+              title: '🎉 New Match!',
+              description: 'You have a new match! Start chatting now!',
+            });
+          }
         }
       )
       .subscribe();
@@ -419,22 +436,28 @@ export const useSocial = () => {
           table: 'messages'
         },
         (payload) => {
-          // Refresh conversations to update last message and unread count
-          fetchConversations();
-          
-          // If viewing the conversation, refresh messages
+          console.log('New message detected:', payload);
           const newMessage = payload.new as Message;
-          setMessages(prev => {
-            if (prev.length > 0 && prev[0].conversation_id === newMessage.conversation_id) {
-              return [...prev, newMessage];
-            }
-            return prev;
-          });
+          
+          // Only handle messages not sent by current user
+          if (newMessage.sender_id !== user.id) {
+            // Refresh conversations to update last message and unread count
+            fetchConversations();
+            
+            // If viewing the conversation, refresh messages
+            setMessages(prev => {
+              if (prev.length > 0 && prev[0].conversation_id === newMessage.conversation_id) {
+                return [...prev, newMessage];
+              }
+              return prev;
+            });
+          }
         }
       )
       .subscribe();
 
     return () => {
+      console.log('Cleaning up real-time subscriptions');
       supabase.removeChannel(matchesChannel);
       supabase.removeChannel(messagesChannel);
     };
