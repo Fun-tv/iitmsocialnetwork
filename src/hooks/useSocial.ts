@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -56,7 +57,7 @@ export const useSocial = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Enhanced discovery algorithm to show all available profiles
+  // Fixed discovery algorithm to show ALL available profiles
   const fetchDiscoveryProfiles = async () => {
     if (!user) return;
 
@@ -73,7 +74,7 @@ export const useSocial = () => {
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
       console.log('Already liked profiles:', likedIds);
       
-      // Build the query for available profiles - include ALL genders
+      // Build query to get ALL complete profiles (including pending verification)
       let query = supabase
         .from('profiles')
         .select('*')
@@ -87,18 +88,19 @@ export const useSocial = () => {
 
       const { data: profiles, error } = await query
         .order('created_at', { ascending: false })
-        .limit(100); // Increased limit for better variety
+        .limit(50);
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
         toast({
-          title: 'Error',
-          description: 'Failed to load profiles. Please try again.',
+          title: 'Connection Error',
+          description: 'Failed to load profiles. Checking your connection...',
           variant: 'destructive',
         });
         return;
       }
 
+      console.log('Raw profiles from database:', profiles);
       console.log('Found profiles for discovery:', profiles?.length || 0);
       
       if (profiles && profiles.length > 0) {
@@ -116,13 +118,25 @@ export const useSocial = () => {
         });
       } else {
         setDiscoveryProfiles([]);
-        console.log('No new profiles available for discovery');
+        console.log('No profiles available for discovery');
+        
+        // Check if there are ANY profiles in the database
+        const { data: allProfiles, error: allError } = await supabase
+          .from('profiles')
+          .select('id, full_name, is_profile_complete, verification_status')
+          .neq('id', user.id);
+          
+        console.log('All other profiles in database:', allProfiles);
+        
+        if (allError) {
+          console.error('Error checking all profiles:', allError);
+        }
       }
     } catch (error) {
       console.error('Error in fetchDiscoveryProfiles:', error);
       toast({
-        title: 'Connection Error',
-        description: 'Unable to load profiles. Check your connection.',
+        title: 'Network Error',
+        description: 'Unable to connect to server. Please try again.',
         variant: 'destructive',
       });
     } finally {

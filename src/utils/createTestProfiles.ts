@@ -8,6 +8,49 @@ export const createTestProfiles = async () => {
   try {
     console.log('Creating test profiles for discovery...');
     
+    // First, check if profiles already exist to avoid duplicates
+    const { data: existingProfiles, error: checkError } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', [
+        '11111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222',
+        '33333333-3333-3333-3333-333333333333',
+        '44444444-4444-4444-4444-444444444444',
+        '55555555-5555-5555-5555-555555555555',
+        '66666666-6666-6666-6666-666666666666',
+        '77777777-7777-7777-7777-777777777777',
+        '88888888-8888-8888-8888-888888888888'
+      ]);
+
+    if (checkError) {
+      console.error('Error checking existing profiles:', checkError);
+    }
+
+    console.log('Existing test profiles found:', existingProfiles?.length || 0);
+    
+    // If we already have test profiles, just verify existing profiles
+    if (existingProfiles && existingProfiles.length > 0) {
+      console.log('Test profiles already exist, updating verification status...');
+      
+      // Update existing profiles to be verified and complete
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          verification_status: 'verified',
+          is_profile_complete: true 
+        })
+        .in('id', existingProfiles.map(p => p.id));
+
+      if (updateError) {
+        console.error('Error updating existing profiles:', updateError);
+        return false;
+      }
+
+      console.log('Updated existing profiles to verified status');
+      return true;
+    }
+    
     const testProfiles: ProfileInsert[] = [
       {
         id: '11111111-1111-1111-1111-111111111111',
@@ -115,16 +158,44 @@ export const createTestProfiles = async () => {
       }
     ];
 
+    console.log('Attempting to insert test profiles...');
+    
     const { data, error } = await supabase
       .from('profiles')
-      .upsert(testProfiles, { onConflict: 'id' });
+      .upsert(testProfiles, { 
+        onConflict: 'id',
+        ignoreDuplicates: false 
+      })
+      .select();
 
     if (error) {
       console.error('Error creating test profiles:', error);
-      return false;
+      
+      // Try to create profiles one by one if batch insert fails
+      console.log('Attempting individual profile creation...');
+      let successCount = 0;
+      
+      for (const profile of testProfiles) {
+        try {
+          const { error: individualError } = await supabase
+            .from('profiles')
+            .upsert(profile, { onConflict: 'id' });
+          
+          if (!individualError) {
+            successCount++;
+          } else {
+            console.error(`Error creating profile ${profile.full_name}:`, individualError);
+          }
+        } catch (err) {
+          console.error(`Exception creating profile ${profile.full_name}:`, err);
+        }
+      }
+      
+      console.log(`Successfully created ${successCount} of ${testProfiles.length} profiles`);
+      return successCount > 0;
     }
 
-    console.log('Test profiles created successfully:', data);
+    console.log('Test profiles created/updated successfully:', data?.length || 0);
     return true;
   } catch (error) {
     console.error('Error in createTestProfiles:', error);

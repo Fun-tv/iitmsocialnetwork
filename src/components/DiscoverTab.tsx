@@ -21,20 +21,37 @@ const DiscoverTab = () => {
   const [hasTriedCreatingProfiles, setHasTriedCreatingProfiles] = useState(false);
 
   useEffect(() => {
+    console.log('DiscoverTab mounted, fetching profiles...');
     fetchDiscoveryProfiles();
   }, []);
 
-  // Create test profiles if none are found (only once)
+  // Enhanced profile creation logic with better error handling
   useEffect(() => {
     if (!loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
       setHasTriedCreatingProfiles(true);
-      console.log('No profiles found, creating test profiles...');
+      console.log('No profiles found, attempting to create test profiles...');
+      
       createTestProfiles().then((success) => {
+        console.log('Test profile creation result:', success);
         if (success) {
+          // Wait longer for database to sync
+          setTimeout(() => {
+            console.log('Refetching profiles after test creation...');
+            fetchDiscoveryProfiles();
+          }, 2000);
+        } else {
+          console.log('Test profile creation failed, but continuing...');
+          // Even if test creation fails, try to fetch existing profiles
           setTimeout(() => {
             fetchDiscoveryProfiles();
           }, 1000);
         }
+      }).catch((error) => {
+        console.error('Error during test profile creation:', error);
+        // Still try to fetch existing profiles
+        setTimeout(() => {
+          fetchDiscoveryProfiles();
+        }, 1000);
       });
     }
   }, [loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
@@ -42,6 +59,7 @@ const DiscoverTab = () => {
   const handleLike = async (id: string) => {
     setIsActionLoading(true);
     try {
+      console.log('Handling like for profile:', id);
       const success = await likeProfile(id);
       if (success) {
         nextProfile();
@@ -52,6 +70,7 @@ const DiscoverTab = () => {
   };
 
   const handleSkip = (id: string) => {
+    console.log('Handling skip for profile:', id);
     skipProfile(id);
     nextProfile();
   };
@@ -61,17 +80,30 @@ const DiscoverTab = () => {
   };
 
   const resetStack = () => {
+    console.log('Resetting discovery stack...');
     setCurrentIndex(0);
     setHasTriedCreatingProfiles(false);
     fetchDiscoveryProfiles();
   };
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Discovery state update:', {
+      loading,
+      profilesCount: discoveryProfiles.length,
+      currentIndex,
+      hasTriedCreatingProfiles,
+      user: user?.id
+    });
+  }, [loading, discoveryProfiles.length, currentIndex, hasTriedCreatingProfiles, user]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-full">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Finding your next connection...</p>
+          <p className="text-gray-400">Connecting to find your matches...</p>
+          <p className="text-gray-500 text-sm mt-2">Loading profiles from database...</p>
         </div>
       </div>
     );
@@ -86,9 +118,12 @@ const DiscoverTab = () => {
             <h3 className="text-2xl font-bold text-white">Looking for connections...</h3>
             <p className="text-gray-400 max-w-sm">
               {hasTriedCreatingProfiles 
-                ? "We're setting up some profiles for you to discover. This might take a moment!"
-                : "No profiles available right now. Try refreshing to see new people!"
+                ? "Setting up profiles for discovery. This may take a moment while we connect to the database."
+                : "No profiles available right now. Let's refresh to find people to connect with!"
               }
+            </p>
+            <p className="text-gray-500 text-xs mt-4">
+              If this persists, there may be a connection issue with the backend.
             </p>
           </div>
           <button
@@ -96,7 +131,7 @@ const DiscoverTab = () => {
             className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-full font-semibold hover:scale-105 transition-transform mx-auto"
           >
             <RefreshCw size={20} />
-            <span>Refresh</span>
+            <span>Refresh & Retry</span>
           </button>
         </div>
       </div>
@@ -114,9 +149,16 @@ const DiscoverTab = () => {
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-white">No more profiles</h3>
             <p className="text-gray-400 max-w-sm">
-              Check back later for new students to connect with!
+              You've seen all available profiles. Check back later for new students to connect with!
             </p>
           </div>
+          <button
+            onClick={resetStack}
+            className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-full font-semibold hover:scale-105 transition-transform mx-auto"
+          >
+            <RefreshCw size={20} />
+            <span>Check for New Profiles</span>
+          </button>
         </div>
       </div>
     );
