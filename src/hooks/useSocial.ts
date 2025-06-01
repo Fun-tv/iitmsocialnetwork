@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +13,7 @@ interface UserProfile {
   interests: string[];
   profile_picture_url?: string;
   gender?: string;
+  verification_status?: string;
 }
 
 interface Match {
@@ -57,15 +57,18 @@ export const useSocial = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fixed discovery algorithm to show ALL available profiles
+  // Fixed discovery algorithm to show ALL complete profiles (including pending)
   const fetchDiscoveryProfiles = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found, skipping profile fetch');
+      return;
+    }
 
     try {
       setLoading(true);
       console.log('Fetching discovery profiles for user:', user.id);
       
-      // Get profiles that user hasn't liked yet and aren't the current user
+      // Get profiles that user hasn't liked yet
       const { data: likedProfiles } = await supabase
         .from('user_likes')
         .select('liked_id')
@@ -87,14 +90,13 @@ export const useSocial = () => {
       }
 
       const { data: profiles, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
         toast({
           title: 'Connection Error',
-          description: 'Failed to load profiles. Checking your connection...',
+          description: 'Failed to load profiles. Please check your connection.',
           variant: 'destructive',
         });
         return;
@@ -111,9 +113,10 @@ export const useSocial = () => {
           .map(({ profile }) => profile);
         
         setDiscoveryProfiles(shuffledProfiles);
+        console.log('Set discovery profiles:', shuffledProfiles);
         
         toast({
-          title: 'Profiles Loaded',
+          title: 'Profiles Loaded!',
           description: `Found ${shuffledProfiles.length} people to connect with!`,
         });
       } else {
@@ -130,6 +133,11 @@ export const useSocial = () => {
         
         if (allError) {
           console.error('Error checking all profiles:', allError);
+        } else if (allProfiles && allProfiles.length === 0) {
+          toast({
+            title: 'No Other Users',
+            description: 'You are the first user! More people will join soon.',
+          });
         }
       }
     } catch (error) {
@@ -144,9 +152,12 @@ export const useSocial = () => {
     }
   };
 
-  // Enhanced like functionality with better error handling
+  // Enhanced like functionality with real-time updates
   const likeProfile = async (profileId: string) => {
-    if (!user) return false;
+    if (!user) {
+      console.log('No user found for liking');
+      return false;
+    }
 
     try {
       console.log('Liking profile:', profileId);
@@ -200,7 +211,7 @@ export const useSocial = () => {
         // Refresh matches after a brief delay
         setTimeout(() => {
           fetchMatches();
-        }, 1500);
+        }, 1000);
       } else {
         toast({
           title: '❤️ Profile Liked',
@@ -208,7 +219,7 @@ export const useSocial = () => {
         });
       }
 
-      // Remove liked profile from discovery
+      // Remove liked profile from discovery immediately
       setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
       
       return true;
@@ -219,6 +230,40 @@ export const useSocial = () => {
         description: 'Something went wrong. Please try again.',
         variant: 'destructive',
       });
+      return false;
+    }
+  };
+
+  // Super-like functionality
+  const superLikeProfile = async (profileId: string) => {
+    if (!user) return false;
+
+    try {
+      console.log('Super-liking profile:', profileId);
+      
+      const { data, error } = await supabase
+        .from('user_likes')
+        .insert({
+          liker_id: user.id,
+          liked_id: profileId,
+          is_super_like: true
+        })
+        .select();
+
+      if (error) {
+        console.error('Error super-liking profile:', error);
+        return false;
+      }
+
+      toast({
+        title: '⭐ Super Like Sent!',
+        description: 'They\'ll know you really like them!',
+      });
+
+      setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
+      return true;
+    } catch (error) {
+      console.error('Error in superLikeProfile:', error);
       return false;
     }
   };
@@ -455,13 +500,13 @@ export const useSocial = () => {
     }
   };
 
-  // Subscribe to real-time updates with fixed filters
+  // Enhanced real-time subscriptions
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up real-time subscriptions for user:', user.id);
+    console.log('Setting up enhanced real-time subscriptions for user:', user.id);
 
-    // Subscribe to new matches
+    // Subscribe to new matches with instant notifications
     const matchesChannel = supabase
       .channel('matches-changes')
       .on(
@@ -485,7 +530,7 @@ export const useSocial = () => {
       )
       .subscribe();
 
-    // Subscribe to new messages
+    // Subscribe to new messages with real-time updates
     const messagesChannel = supabase
       .channel('messages-changes')
       .on(
@@ -510,15 +555,46 @@ export const useSocial = () => {
               }
               return prev;
             });
+
+            toast({
+              title: '💬 New Message',
+              description: 'You have a new message!',
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to new likes for instant feedback
+    const likesChannel = supabase
+      .channel('likes-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_likes'
+        },
+        (payload) => {
+          console.log('New like detected:', payload);
+          const newLike = payload.new as any;
+          
+          // If someone liked the current user
+          if (newLike.liked_id === user.id) {
+            toast({
+              title: '❤️ Someone Liked You!',
+              description: 'Check your matches to see if it\'s mutual!',
+            });
           }
         }
       )
       .subscribe();
 
     return () => {
-      console.log('Cleaning up real-time subscriptions');
+      console.log('Cleaning up enhanced real-time subscriptions');
       supabase.removeChannel(matchesChannel);
       supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(likesChannel);
     };
   }, [user]);
 
@@ -530,6 +606,7 @@ export const useSocial = () => {
     loading,
     fetchDiscoveryProfiles,
     likeProfile,
+    superLikeProfile,
     skipProfile,
     fetchMatches,
     fetchConversations,

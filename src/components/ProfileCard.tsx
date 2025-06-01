@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Heart, X, GraduationCap } from 'lucide-react';
+import { Heart, X, GraduationCap, Star } from 'lucide-react';
 
 interface ProfileCardProps {
   profile: {
@@ -13,27 +13,33 @@ interface ProfileCardProps {
     image: string;
   };
   onLike: (id: string) => void;
+  onSuperLike?: (id: string) => void;
   onSkip: (id: string) => void;
   disabled?: boolean;
 }
 
-const ProfileCard = ({ profile, onLike, onSkip, disabled = false }: ProfileCardProps) => {
+const ProfileCard = ({ profile, onLike, onSuperLike, onSkip, disabled = false }: ProfileCardProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
+  const [animationType, setAnimationType] = useState<'like' | 'super' | 'skip' | null>(null);
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  const handleAction = async (action: 'like' | 'skip') => {
+  const handleAction = async (action: 'like' | 'super' | 'skip') => {
     if (disabled) return;
     
     setIsAnimating(true);
+    setAnimationType(action);
     
     if (action === 'like') {
       await onLike(profile.id);
-    } else {
+    } else if (action === 'super' && onSuperLike) {
+      await onSuperLike(profile.id);
+    } else if (action === 'skip') {
       onSkip(profile.id);
     }
     
     setTimeout(() => {
       setIsAnimating(false);
+      setAnimationType(null);
     }, 300);
   };
 
@@ -103,28 +109,40 @@ const ProfileCard = ({ profile, onLike, onSkip, disabled = false }: ProfileCardP
       </div>
       
       {/* Action Buttons */}
-      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-6">
+      <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4">
         <button
           onClick={() => handleAction('skip')}
           disabled={disabled || isAnimating}
-          className="group w-16 h-16 bg-gray-800/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gray-700/90 hover:scale-110 active:scale-95 shadow-xl border border-gray-600/50 disabled:opacity-50"
+          className="group w-14 h-14 bg-gray-800/90 backdrop-blur-sm rounded-full flex items-center justify-center transition-all duration-300 hover:bg-gray-700/90 hover:scale-110 active:scale-95 shadow-xl border border-gray-600/50 disabled:opacity-50"
         >
-          <X size={28} className="text-gray-300 group-hover:text-white transition-colors" />
+          <X size={24} className="text-gray-300 group-hover:text-white transition-colors" />
         </button>
+
+        {onSuperLike && (
+          <button
+            onClick={() => handleAction('super')}
+            disabled={disabled || isAnimating}
+            className="group w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-xl hover:shadow-blue-500/30 disabled:opacity-50"
+          >
+            <Star size={24} className="text-white group-hover:scale-110 transition-transform" fill="white" />
+          </button>
+        )}
         
         <button
           onClick={() => handleAction('like')}
           disabled={disabled || isAnimating}
-          className="group w-16 h-16 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-xl hover:shadow-red-500/30 disabled:opacity-50"
+          className="group w-14 h-14 bg-gradient-to-r from-red-500 to-pink-500 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-xl hover:shadow-red-500/30 disabled:opacity-50"
         >
-          <Heart size={28} className="text-white group-hover:scale-110 transition-transform" fill="white" />
+          <Heart size={24} className="text-white group-hover:scale-110 transition-transform" fill="white" />
         </button>
       </div>
 
-      {/* Animated Like Effect */}
+      {/* Animated Action Effects */}
       {isAnimating && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-6xl animate-bounce">❤️</div>
+          {animationType === 'like' && <div className="text-6xl animate-bounce">❤️</div>}
+          {animationType === 'super' && <div className="text-6xl animate-bounce">⭐</div>}
+          {animationType === 'skip' && <div className="text-6xl animate-bounce">👋</div>}
         </div>
       )}
     </div>

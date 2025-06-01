@@ -11,7 +11,7 @@ export const createTestProfiles = async () => {
     // First, check if profiles already exist to avoid duplicates
     const { data: existingProfiles, error: checkError } = await supabase
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, verification_status')
       .in('id', [
         '11111111-1111-1111-1111-111111111111',
         '22222222-2222-2222-2222-222222222222',
@@ -29,9 +29,9 @@ export const createTestProfiles = async () => {
 
     console.log('Existing test profiles found:', existingProfiles?.length || 0);
     
-    // If we already have test profiles, just verify existing profiles
+    // If we already have test profiles, just verify existing profiles are complete
     if (existingProfiles && existingProfiles.length > 0) {
-      console.log('Test profiles already exist, updating verification status...');
+      console.log('Test profiles already exist, ensuring they are complete and verified...');
       
       // Update existing profiles to be verified and complete
       const { error: updateError } = await supabase
@@ -47,7 +47,7 @@ export const createTestProfiles = async () => {
         return false;
       }
 
-      console.log('Updated existing profiles to verified status');
+      console.log('Updated existing profiles to verified and complete status');
       return true;
     }
     
@@ -60,8 +60,8 @@ export const createTestProfiles = async () => {
         gender: 'male',
         department: 'Computer Science',
         academic_year: '3rd_year',
-        bio: 'Love coding, gaming, and exploring new technologies. Always up for interesting conversations!',
-        interests: ['Programming', 'Gaming', 'Tech', 'Movies'],
+        bio: 'Love coding, gaming, and exploring new technologies. Always up for interesting conversations about AI and machine learning!',
+        interests: ['Programming', 'Gaming', 'AI/ML', 'Movies', 'Tech'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -73,8 +73,8 @@ export const createTestProfiles = async () => {
         gender: 'female',
         department: 'Electrical Engineering',
         academic_year: '2nd_year',
-        bio: 'Passionate about renewable energy and sustainable technology. Love music and dance!',
-        interests: ['Engineering', 'Music', 'Dance', 'Environment'],
+        bio: 'Passionate about renewable energy and sustainable technology. Love music, dance, and making a positive impact!',
+        interests: ['Engineering', 'Music', 'Dance', 'Environment', 'Sustainability'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -86,8 +86,8 @@ export const createTestProfiles = async () => {
         gender: 'male',
         department: 'Mechanical Engineering',
         academic_year: '4th_year',
-        bio: 'Future entrepreneur with a passion for innovation. Love sports and traveling.',
-        interests: ['Innovation', 'Sports', 'Travel', 'Business'],
+        bio: 'Future entrepreneur with a passion for innovation. Love sports, traveling, and building cool things that matter.',
+        interests: ['Innovation', 'Sports', 'Travel', 'Business', 'Startups'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -99,8 +99,8 @@ export const createTestProfiles = async () => {
         gender: 'female',
         department: 'Chemistry',
         academic_year: '1st_year',
-        bio: 'Curious about the world around us. Love reading, painting, and philosophical discussions.',
-        interests: ['Science', 'Art', 'Reading', 'Philosophy'],
+        bio: 'Curious about the world around us. Love reading, painting, philosophical discussions, and discovering new perspectives.',
+        interests: ['Science', 'Art', 'Reading', 'Philosophy', 'Painting'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -112,8 +112,8 @@ export const createTestProfiles = async () => {
         gender: 'other',
         department: 'Mathematics',
         academic_year: '3rd_year',
-        bio: 'Math enthusiast who sees beauty in numbers. Love photography and nature walks.',
-        interests: ['Mathematics', 'Photography', 'Nature', 'Hiking'],
+        bio: 'Math enthusiast who sees beauty in numbers. Love photography, nature walks, and capturing perfect moments.',
+        interests: ['Mathematics', 'Photography', 'Nature', 'Hiking', 'Art'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -125,8 +125,8 @@ export const createTestProfiles = async () => {
         gender: 'male',
         department: 'Physics',
         academic_year: 'phd',
-        bio: 'PhD student exploring quantum mechanics. Love astronomy and deep conversations about the universe.',
-        interests: ['Physics', 'Astronomy', 'Research', 'Science Fiction'],
+        bio: 'PhD student exploring quantum mechanics. Love astronomy, deep conversations about the universe, and sci-fi.',
+        interests: ['Physics', 'Astronomy', 'Research', 'Science Fiction', 'Space'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -138,8 +138,8 @@ export const createTestProfiles = async () => {
         gender: 'female',
         department: 'Civil Engineering',
         academic_year: '2nd_year',
-        bio: 'Building the future, one structure at a time. Love architecture and sustainable design.',
-        interests: ['Engineering', 'Architecture', 'Sustainability', 'Design'],
+        bio: 'Building the future, one structure at a time. Love architecture, sustainable design, and creating beautiful spaces.',
+        interests: ['Engineering', 'Architecture', 'Sustainability', 'Design', 'Art'],
         is_profile_complete: true,
         verification_status: 'verified'
       },
@@ -151,8 +151,8 @@ export const createTestProfiles = async () => {
         gender: 'male',
         department: 'Biotechnology',
         academic_year: '4th_year',
-        bio: 'Exploring the intersection of biology and technology. Passionate about research and innovation.',
-        interests: ['Biotechnology', 'Research', 'Innovation', 'Health'],
+        bio: 'Exploring the intersection of biology and technology. Passionate about research, innovation, and improving healthcare.',
+        interests: ['Biotechnology', 'Research', 'Innovation', 'Health', 'Medicine'],
         is_profile_complete: true,
         verification_status: 'verified'
       }
@@ -183,6 +183,7 @@ export const createTestProfiles = async () => {
           
           if (!individualError) {
             successCount++;
+            console.log(`Successfully created/updated profile: ${profile.full_name}`);
           } else {
             console.error(`Error creating profile ${profile.full_name}:`, individualError);
           }
@@ -191,7 +192,7 @@ export const createTestProfiles = async () => {
         }
       }
       
-      console.log(`Successfully created ${successCount} of ${testProfiles.length} profiles`);
+      console.log(`Successfully created/updated ${successCount} of ${testProfiles.length} profiles`);
       return successCount > 0;
     }
 
