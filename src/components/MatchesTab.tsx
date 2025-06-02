@@ -1,10 +1,11 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Heart, MessageCircle } from 'lucide-react';
 import { useSocial } from '@/hooks/useSocial';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import ProfileDetailModal from './ProfileDetailModal';
 
 interface MatchesTabProps {
   onStartChat?: (matchId: string) => void;
@@ -14,6 +15,7 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
   const { user } = useAuth();
   const { matches, fetchMatches, loading } = useSocial();
   const { toast } = useToast();
+  const [selectedProfile, setSelectedProfile] = useState<any>(null);
 
   useEffect(() => {
     console.log('MatchesTab mounted, fetching matches...');
@@ -82,6 +84,10 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
     }
   };
 
+  const handleProfileClick = (match: any) => {
+    setSelectedProfile(match.profile);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-full">
@@ -117,12 +123,16 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
                 <img 
                   src={match.profile.profile_picture_url || `https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face`} 
                   alt={match.profile.full_name}
-                  className="w-16 h-16 rounded-full object-cover"
+                  className="w-16 h-16 rounded-full object-cover cursor-pointer"
+                  onClick={() => handleProfileClick(match)}
                 />
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800"></div>
               </div>
               
-              <div className="flex-1">
+              <div 
+                className="flex-1 cursor-pointer"
+                onClick={() => handleProfileClick(match)}
+              >
                 <h3 className="font-semibold text-white">{match.profile.full_name}</h3>
                 <p className="text-sm text-gray-400 mb-1">{match.profile.department}</p>
                 <p className="text-sm text-gray-300">
@@ -143,6 +153,13 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
           ))}
         </div>
       )}
+
+      <ProfileDetailModal
+        profile={selectedProfile}
+        isOpen={!!selectedProfile}
+        onClose={() => setSelectedProfile(null)}
+        showActions={false}
+      />
     </div>
   );
 };
