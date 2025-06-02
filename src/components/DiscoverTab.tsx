@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import ProfileCard from './ProfileCard';
 import { RefreshCw } from 'lucide-react';
@@ -20,26 +19,47 @@ const DiscoverTab = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [hasTriedCreatingProfiles, setHasTriedCreatingProfiles] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    console.log('DiscoverTab mounted, fetching profiles...');
+    console.log('DiscoverTab mounted, initializing...');
     if (user) {
-      fetchDiscoveryProfiles();
+      initializeDiscovery();
     }
   }, [user]);
 
+  const initializeDiscovery = async () => {
+    console.log('Starting discovery initialization for user:', user?.id);
+    setIsInitializing(true);
+    
+    try {
+      // First attempt to fetch existing profiles
+      await fetchDiscoveryProfiles();
+      
+      // Give it a moment to load
+      setTimeout(() => {
+        setIsInitializing(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Error during discovery initialization:', error);
+      setIsInitializing(false);
+    }
+  };
+
   // Enhanced profile creation logic
   useEffect(() => {
-    if (!loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
+    if (!isInitializing && !loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
       setHasTriedCreatingProfiles(true);
       console.log('No profiles found, attempting to create test profiles...');
       
       createTestProfiles().then((success) => {
         console.log('Test profile creation result:', success);
-        setTimeout(() => {
-          console.log('Refetching profiles after test creation...');
-          fetchDiscoveryProfiles();
-        }, 2000);
+        if (success) {
+          setTimeout(() => {
+            console.log('Refetching profiles after test creation...');
+            fetchDiscoveryProfiles();
+          }, 2000);
+        }
       }).catch((error) => {
         console.error('Error during test profile creation:', error);
         setTimeout(() => {
@@ -47,7 +67,7 @@ const DiscoverTab = () => {
         }, 1000);
       });
     }
-  }, [loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
+  }, [isInitializing, loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
 
   const handleLike = async (id: string) => {
     setIsActionLoading(true);
@@ -91,27 +111,31 @@ const DiscoverTab = () => {
     console.log('Resetting discovery stack...');
     setCurrentIndex(0);
     setHasTriedCreatingProfiles(false);
-    fetchDiscoveryProfiles();
+    setIsInitializing(true);
+    initializeDiscovery();
   };
 
   // Debug logging
   useEffect(() => {
     console.log('Discovery state update:', {
+      isInitializing,
       loading,
       profilesCount: discoveryProfiles.length,
       currentIndex,
       hasTriedCreatingProfiles,
       user: user?.id
     });
-  }, [loading, discoveryProfiles.length, currentIndex, hasTriedCreatingProfiles, user]);
+  }, [isInitializing, loading, discoveryProfiles.length, currentIndex, hasTriedCreatingProfiles, user]);
 
-  if (loading) {
+  if (isInitializing || loading) {
     return (
       <div className="flex items-center justify-center min-h-full">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-400">Finding amazing people for you...</p>
-          <p className="text-gray-500 text-sm mt-2">Loading profiles from database...</p>
+          <p className="text-gray-500 text-sm mt-2">
+            {isInitializing ? 'Initializing discovery...' : 'Loading profiles from database...'}
+          </p>
         </div>
       </div>
     );
@@ -123,11 +147,16 @@ const DiscoverTab = () => {
         <div className="space-y-6">
           <div className="text-8xl mb-4 animate-bounce">🔍</div>
           <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-white">Looking for connections...</h3>
+            <h3 className="text-2xl font-bold text-white">
+              {hasTriedCreatingProfiles 
+                ? "Setting up your discovery feed..."
+                : "Ready to find connections!"
+              }
+            </h3>
             <p className="text-gray-400 max-w-sm">
               {hasTriedCreatingProfiles 
-                ? "Setting up your discovery feed. This may take a moment..."
-                : "No profiles available right now. Let's refresh to find people to connect with!"
+                ? "We're preparing some profiles for you to discover. This may take a moment..."
+                : "Let's find some amazing people for you to connect with!"
               }
             </p>
             <p className="text-gray-500 text-xs mt-4">
@@ -136,10 +165,13 @@ const DiscoverTab = () => {
           </div>
           <button
             onClick={resetStack}
-            className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-full font-semibold hover:scale-105 transition-transform mx-auto"
+            disabled={hasTriedCreatingProfiles}
+            className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-full font-semibold hover:scale-105 transition-transform mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw size={20} />
-            <span>Refresh & Find People</span>
+            <span>
+              {hasTriedCreatingProfiles ? 'Setting up...' : 'Refresh & Find People'}
+            </span>
           </button>
         </div>
       </div>
