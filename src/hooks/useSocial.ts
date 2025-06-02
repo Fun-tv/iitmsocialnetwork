@@ -68,7 +68,7 @@ export const useSocial = () => {
       setLoading(true);
       console.log('Fetching discovery profiles for user:', user.id);
       
-      // Get profiles that user hasn't liked yet
+      // First, get profiles that user hasn't liked yet
       const { data: likedProfiles } = await supabase
         .from('user_likes')
         .select('liked_id')
@@ -77,12 +77,19 @@ export const useSocial = () => {
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
       console.log('Already liked profiles:', likedIds);
       
-      // Build query to get ALL complete profiles (exclude only current user and already liked)
+      // Get ALL profiles that have required fields filled (making them complete)
+      // A profile is complete if it has: full_name, department, academic_year, and bio
       let query = supabase
         .from('profiles')
         .select('*')
-        .eq('is_profile_complete', true)
-        .neq('id', user.id);
+        .neq('id', user.id)
+        .not('full_name', 'is', null)
+        .not('department', 'is', null)
+        .not('academic_year', 'is', null)
+        .not('bio', 'is', null)
+        .neq('full_name', '')
+        .neq('department', '')
+        .neq('bio', '');
 
       // Only exclude already liked profiles if there are any
       if (likedIds.length > 0) {
@@ -106,44 +113,65 @@ export const useSocial = () => {
       console.log('Found profiles for discovery:', profiles?.length || 0);
       
       if (profiles && profiles.length > 0) {
-        // Shuffle profiles for better variety
-        const shuffledProfiles = profiles
-          .map(profile => ({ profile, sort: Math.random() }))
-          .sort((a, b) => a.sort - b.sort)
-          .map(({ profile }) => profile);
+        // Filter out profiles that don't have essential information
+        const completeProfiles = profiles.filter(profile => 
+          profile.full_name && 
+          profile.department && 
+          profile.academic_year && 
+          profile.bio &&
+          profile.full_name.trim() !== '' &&
+          profile.department.trim() !== '' &&
+          profile.bio.trim() !== ''
+        );
+
+        console.log('Complete profiles after filtering:', completeProfiles.length);
         
-        setDiscoveryProfiles(shuffledProfiles);
-        console.log('Set discovery profiles:', shuffledProfiles);
-        
-        toast({
-          title: 'Profiles Loaded!',
-          description: `Found ${shuffledProfiles.length} people to connect with!`,
-        });
+        if (completeProfiles.length > 0) {
+          // Shuffle profiles for better variety
+          const shuffledProfiles = completeProfiles
+            .map(profile => ({ profile, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ profile }) => profile);
+          
+          setDiscoveryProfiles(shuffledProfiles);
+          console.log('Set discovery profiles:', shuffledProfiles);
+          
+          toast({
+            title: 'Profiles Loaded!',
+            description: `Found ${shuffledProfiles.length} people to connect with!`,
+          });
+        } else {
+          setDiscoveryProfiles([]);
+          console.log('No complete profiles found');
+          
+          toast({
+            title: 'No Complete Profiles',
+            description: 'Other users need to complete their profiles to appear here.',
+          });
+        }
       } else {
         setDiscoveryProfiles([]);
         console.log('No profiles available for discovery');
         
-        // Check if there are ANY other complete profiles in the database
+        // Check if there are ANY other profiles in the database
         const { data: allProfiles, error: allError } = await supabase
           .from('profiles')
-          .select('id, full_name, is_profile_complete, verification_status')
-          .neq('id', user.id)
-          .eq('is_profile_complete', true);
+          .select('id, full_name, email')
+          .neq('id', user.id);
           
-        console.log('All other complete profiles in database:', allProfiles);
+        console.log('All other profiles in database:', allProfiles);
         
         if (allError) {
           console.error('Error checking all profiles:', allError);
         } else if (allProfiles && allProfiles.length === 0) {
           toast({
             title: 'No Other Users',
-            description: 'You are the first user with a complete profile! More people will join soon.',
+            description: 'You are the first user! More people will join soon.',
           });
         } else {
-          // There are profiles but they might be filtered out
           toast({
-            title: 'All Caught Up!',
-            description: 'You\'ve seen all available profiles. Check back later for new connections!',
+            title: 'Profiles Incomplete',
+            description: 'Other users are still completing their profiles. Check back later!',
           });
         }
       }
