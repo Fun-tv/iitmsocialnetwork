@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,10 +8,9 @@ import { Label } from '@/components/ui/label';
 import { validateIITMEmail, validatePassword } from '@/utils/validation';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Heart, Users, MessageCircle, Star } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
 
-const Auth = () => {
-  const { signUp, signIn, user, loading: authLoading } = useAuth();
+const Landing = () => {
+  const { signUp, signIn } = useAuth();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -19,35 +18,6 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (user && !authLoading) {
-      // Small delay to prevent flash
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 100);
-    }
-  }, [user, authLoading]);
-
-  // Show loading if auth is still initializing
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-r from-red-500 to-red-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white font-bold text-2xl">🔥</span>
-          </div>
-          <div className="text-white text-lg">Loading...</div>
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect if already authenticated
-  if (user) {
-    return <Navigate to="/" replace />;
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +30,6 @@ const Auth = () => {
           description: 'Please use your IITM email address (@smail.iitm.ac.in, @ds.study.iitm.ac.in, etc.)',
           variant: 'destructive',
         });
-        setLoading(false);
         return;
       }
 
@@ -71,7 +40,6 @@ const Auth = () => {
             description: 'Passwords do not match',
             variant: 'destructive',
           });
-          setLoading(false);
           return;
         }
 
@@ -82,14 +50,11 @@ const Auth = () => {
             description: passwordValidation.errors.join('. '),
             variant: 'destructive',
           });
-          setLoading(false);
           return;
         }
 
-        console.log('Attempting sign up with email:', email);
         const { error } = await signUp(email, password);
         if (error) {
-          console.error('Sign up error:', error);
           toast({
             title: 'Sign Up Failed',
             description: error.message,
@@ -102,20 +67,12 @@ const Auth = () => {
           });
         }
       } else {
-        console.log('Attempting sign in with email:', email);
         const { error } = await signIn(email, password);
         if (error) {
-          console.error('Sign in error:', error);
           toast({
             title: 'Sign In Failed',
-            description: error.message || 'Invalid email or password',
+            description: error.message,
             variant: 'destructive',
-          });
-        } else {
-          console.log('Sign in successful');
-          toast({
-            title: 'Welcome back!',
-            description: 'You have been successfully signed in.',
           });
         }
       }
@@ -259,4 +216,4 @@ const Auth = () => {
   );
 };
 
-export default Auth;
+export default Landing;

@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
-import { Navigate } from 'react-router-dom';
+import Landing from '@/pages/Landing';
 import OnboardingFlow from '@/components/OnboardingFlow';
 
 interface ProtectedRouteProps {
@@ -27,7 +27,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Landing />;
   }
 
   // Check if user needs to complete onboarding

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ProfileCard from './ProfileCard';
 import { RefreshCw } from 'lucide-react';
@@ -21,30 +22,29 @@ const DiscoverTab = () => {
   const [hasTriedCreatingProfiles, setHasTriedCreatingProfiles] = useState(false);
 
   useEffect(() => {
-    console.log('DiscoverTab mounted for user:', user?.id);
+    console.log('DiscoverTab mounted, fetching profiles...');
     if (user) {
-      // Immediately fetch discovery profiles
       fetchDiscoveryProfiles();
     }
   }, [user]);
 
-  // Only try creating test profiles if we get zero results after initial fetch
+  // Enhanced profile creation logic
   useEffect(() => {
     if (!loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
-      console.log('No profiles found after initial fetch, trying to create test profiles...');
       setHasTriedCreatingProfiles(true);
+      console.log('No profiles found, attempting to create test profiles...');
       
       createTestProfiles().then((success) => {
         console.log('Test profile creation result:', success);
-        if (success) {
-          // Wait a moment then refetch
-          setTimeout(() => {
-            console.log('Refetching profiles after test creation...');
-            fetchDiscoveryProfiles();
-          }, 2000);
-        }
+        setTimeout(() => {
+          console.log('Refetching profiles after test creation...');
+          fetchDiscoveryProfiles();
+        }, 2000);
       }).catch((error) => {
         console.error('Error during test profile creation:', error);
+        setTimeout(() => {
+          fetchDiscoveryProfiles();
+        }, 1000);
       });
     }
   }, [loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
@@ -110,7 +110,8 @@ const DiscoverTab = () => {
       <div className="flex items-center justify-center min-h-full">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading profiles...</p>
+          <p className="text-gray-400">Finding amazing people for you...</p>
+          <p className="text-gray-500 text-sm mt-2">Loading profiles from database...</p>
         </div>
       </div>
     );
@@ -122,28 +123,23 @@ const DiscoverTab = () => {
         <div className="space-y-6">
           <div className="text-8xl mb-4 animate-bounce">🔍</div>
           <div className="space-y-2">
-            <h3 className="text-2xl font-bold text-white">
-              {hasTriedCreatingProfiles 
-                ? "Setting up your discovery feed..."
-                : "Looking for connections!"
-              }
-            </h3>
+            <h3 className="text-2xl font-bold text-white">Looking for connections...</h3>
             <p className="text-gray-400 max-w-sm">
               {hasTriedCreatingProfiles 
-                ? "We're preparing some profiles for you to discover. This may take a moment..."
-                : "Let's find some amazing people for you to connect with!"
+                ? "Setting up your discovery feed. This may take a moment..."
+                : "No profiles available right now. Let's refresh to find people to connect with!"
               }
+            </p>
+            <p className="text-gray-500 text-xs mt-4">
+              Make sure your profile is complete to appear in others' discovery feed!
             </p>
           </div>
           <button
             onClick={resetStack}
-            disabled={hasTriedCreatingProfiles}
-            className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-full font-semibold hover:scale-105 transition-transform mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center space-x-2 bg-gradient-to-r from-red-500 to-pink-500 text-white px-6 py-3 rounded-full font-semibold hover:scale-105 transition-transform mx-auto"
           >
             <RefreshCw size={20} />
-            <span>
-              {hasTriedCreatingProfiles ? 'Setting up...' : 'Refresh & Find People'}
-            </span>
+            <span>Refresh & Find People</span>
           </button>
         </div>
       </div>
