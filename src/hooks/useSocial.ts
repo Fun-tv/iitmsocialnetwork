@@ -57,7 +57,7 @@ export const useSocial = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fixed discovery algorithm to show ALL complete profiles (including pending)
+  // Enhanced discovery algorithm - fetch ALL complete profiles
   const fetchDiscoveryProfiles = async () => {
     if (!user) {
       console.log('No user found, skipping profile fetch');
@@ -68,32 +68,24 @@ export const useSocial = () => {
       setLoading(true);
       console.log('Fetching discovery profiles for user:', user.id);
       
-      // Get profiles that user hasn't liked yet
+      // First, get profiles that user hasn't interacted with yet
       const { data: likedProfiles } = await supabase
         .from('user_likes')
         .select('liked_id')
         .eq('liker_id', user.id);
 
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
-      console.log('Already liked profiles:', likedIds);
+      console.log('Already interacted with profiles:', likedIds);
       
-      // Build query to get ALL complete profiles (including pending verification)
-      let query = supabase
+      // Get ALL complete profiles except current user
+      const { data: allProfiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .eq('is_profile_complete', true)
         .neq('id', user.id);
 
-      // Only exclude already liked profiles if there are any
-      if (likedIds.length > 0) {
-        query = query.not('id', 'in', `(${likedIds.join(',')})`);
-      }
-
-      const { data: profiles, error } = await query
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching discovery profiles:', error);
+      if (profilesError) {
+        console.error('Error fetching all profiles:', profilesError);
         toast({
           title: 'Connection Error',
           description: 'Failed to load profiles. Please check your connection.',
@@ -102,44 +94,49 @@ export const useSocial = () => {
         return;
       }
 
-      console.log('Raw profiles from database:', profiles);
-      console.log('Found profiles for discovery:', profiles?.length || 0);
+      console.log('All complete profiles found:', allProfiles?.length || 0);
+      console.log('Profile details:', allProfiles?.map(p => ({ 
+        id: p.id, 
+        name: p.full_name, 
+        complete: p.is_profile_complete,
+        verification: p.verification_status 
+      })));
       
-      if (profiles && profiles.length > 0) {
-        // Enhanced shuffle algorithm for better variety
-        const shuffledProfiles = profiles
-          .map(profile => ({ profile, sort: Math.random() }))
-          .sort((a, b) => a.sort - b.sort)
-          .map(({ profile }) => profile);
-        
-        setDiscoveryProfiles(shuffledProfiles);
-        console.log('Set discovery profiles:', shuffledProfiles);
+      if (!allProfiles || allProfiles.length === 0) {
+        setDiscoveryProfiles([]);
+        console.log('No complete profiles found in database');
         
         toast({
-          title: 'Profiles Loaded!',
-          description: `Found ${shuffledProfiles.length} people to connect with!`,
+          title: 'No Profiles Available',
+          description: 'Be the first to complete your profile and start connecting!',
         });
-      } else {
-        setDiscoveryProfiles([]);
-        console.log('No profiles available for discovery');
-        
-        // Check if there are ANY profiles in the database
-        const { data: allProfiles, error: allError } = await supabase
-          .from('profiles')
-          .select('id, full_name, is_profile_complete, verification_status')
-          .neq('id', user.id);
-          
-        console.log('All other profiles in database:', allProfiles);
-        
-        if (allError) {
-          console.error('Error checking all profiles:', allError);
-        } else if (allProfiles && allProfiles.length === 0) {
-          toast({
-            title: 'No Other Users',
-            description: 'You are the first user! More people will join soon.',
-          });
-        }
+        return;
       }
+
+      // Filter out already liked profiles for better experience
+      const availableProfiles = allProfiles.filter(profile => 
+        !likedIds.includes(profile.id)
+      );
+
+      console.log('Available profiles after filtering liked:', availableProfiles.length);
+
+      // If no new profiles available, show all profiles anyway
+      const profilesToShow = availableProfiles.length > 0 ? availableProfiles : allProfiles;
+
+      // Enhanced shuffle algorithm for better variety
+      const shuffledProfiles = profilesToShow
+        .map(profile => ({ profile, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ profile }) => profile);
+      
+      setDiscoveryProfiles(shuffledProfiles);
+      console.log('Set discovery profiles count:', shuffledProfiles.length);
+      
+      toast({
+        title: 'Profiles Loaded!',
+        description: `Found ${shuffledProfiles.length} people to connect with!`,
+      });
+
     } catch (error) {
       console.error('Error in fetchDiscoveryProfiles:', error);
       toast({

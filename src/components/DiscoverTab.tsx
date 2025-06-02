@@ -19,42 +19,25 @@ const DiscoverTab = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [hasTriedCreatingProfiles, setHasTriedCreatingProfiles] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    console.log('DiscoverTab mounted, initializing...');
+    console.log('DiscoverTab mounted for user:', user?.id);
     if (user) {
-      initializeDiscovery();
+      // Immediately fetch discovery profiles
+      fetchDiscoveryProfiles();
     }
   }, [user]);
 
-  const initializeDiscovery = async () => {
-    console.log('Starting discovery initialization for user:', user?.id);
-    setIsInitializing(true);
-    
-    try {
-      // First attempt to fetch existing profiles
-      await fetchDiscoveryProfiles();
-      
-      // Give it a moment to load
-      setTimeout(() => {
-        setIsInitializing(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error during discovery initialization:', error);
-      setIsInitializing(false);
-    }
-  };
-
-  // Enhanced profile creation logic
+  // Only try creating test profiles if we get zero results after initial fetch
   useEffect(() => {
-    if (!isInitializing && !loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
+    if (!loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
+      console.log('No profiles found after initial fetch, trying to create test profiles...');
       setHasTriedCreatingProfiles(true);
-      console.log('No profiles found, attempting to create test profiles...');
       
       createTestProfiles().then((success) => {
         console.log('Test profile creation result:', success);
         if (success) {
+          // Wait a moment then refetch
           setTimeout(() => {
             console.log('Refetching profiles after test creation...');
             fetchDiscoveryProfiles();
@@ -62,12 +45,9 @@ const DiscoverTab = () => {
         }
       }).catch((error) => {
         console.error('Error during test profile creation:', error);
-        setTimeout(() => {
-          fetchDiscoveryProfiles();
-        }, 1000);
       });
     }
-  }, [isInitializing, loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
+  }, [loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
 
   const handleLike = async (id: string) => {
     setIsActionLoading(true);
@@ -111,31 +91,26 @@ const DiscoverTab = () => {
     console.log('Resetting discovery stack...');
     setCurrentIndex(0);
     setHasTriedCreatingProfiles(false);
-    setIsInitializing(true);
-    initializeDiscovery();
+    fetchDiscoveryProfiles();
   };
 
   // Debug logging
   useEffect(() => {
     console.log('Discovery state update:', {
-      isInitializing,
       loading,
       profilesCount: discoveryProfiles.length,
       currentIndex,
       hasTriedCreatingProfiles,
       user: user?.id
     });
-  }, [isInitializing, loading, discoveryProfiles.length, currentIndex, hasTriedCreatingProfiles, user]);
+  }, [loading, discoveryProfiles.length, currentIndex, hasTriedCreatingProfiles, user]);
 
-  if (isInitializing || loading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center min-h-full">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Finding amazing people for you...</p>
-          <p className="text-gray-500 text-sm mt-2">
-            {isInitializing ? 'Initializing discovery...' : 'Loading profiles from database...'}
-          </p>
+          <p className="text-gray-400">Loading profiles...</p>
         </div>
       </div>
     );
@@ -150,7 +125,7 @@ const DiscoverTab = () => {
             <h3 className="text-2xl font-bold text-white">
               {hasTriedCreatingProfiles 
                 ? "Setting up your discovery feed..."
-                : "Ready to find connections!"
+                : "Looking for connections!"
               }
             </h3>
             <p className="text-gray-400 max-w-sm">
@@ -158,9 +133,6 @@ const DiscoverTab = () => {
                 ? "We're preparing some profiles for you to discover. This may take a moment..."
                 : "Let's find some amazing people for you to connect with!"
               }
-            </p>
-            <p className="text-gray-500 text-xs mt-4">
-              Make sure your profile is complete to appear in others' discovery feed!
             </p>
           </div>
           <button
