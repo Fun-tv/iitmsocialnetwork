@@ -39,8 +39,8 @@ const MessagesTab = () => {
       if (success) {
         setNewMessage('');
         // Refresh messages and conversations
-        fetchMessages(selectedConversation);
-        fetchConversations();
+        await fetchMessages(selectedConversation);
+        await fetchConversations();
       }
     } finally {
       setSendingMessage(false);

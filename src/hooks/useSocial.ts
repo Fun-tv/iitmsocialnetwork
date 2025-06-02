@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -57,7 +58,6 @@ export const useSocial = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Enhanced discovery algorithm to show ALL complete profiles
   const fetchDiscoveryProfiles = async () => {
     if (!user) {
       console.log('No user found, skipping profile fetch');
@@ -68,7 +68,7 @@ export const useSocial = () => {
       setLoading(true);
       console.log('Fetching discovery profiles for user:', user.id);
       
-      // First, get profiles that user hasn't liked yet
+      // Get profiles that user hasn't liked yet
       const { data: likedProfiles } = await supabase
         .from('user_likes')
         .select('liked_id')
@@ -77,8 +77,7 @@ export const useSocial = () => {
       const likedIds = likedProfiles?.map(like => like.liked_id) || [];
       console.log('Already liked profiles:', likedIds);
       
-      // Get ALL profiles that have required fields filled (making them complete)
-      // A profile is complete if it has: full_name, department, academic_year, and bio
+      // Get complete profiles excluding already liked ones and current user
       let query = supabase
         .from('profiles')
         .select('*')
@@ -91,13 +90,11 @@ export const useSocial = () => {
         .neq('department', '')
         .neq('bio', '');
 
-      // Only exclude already liked profiles if there are any
       if (likedIds.length > 0) {
         query = query.not('id', 'in', `(${likedIds.join(',')})`);
       }
 
-      const { data: profiles, error } = await query
-        .order('created_at', { ascending: false });
+      const { data: profiles, error } = await query.order('created_at', { ascending: false });
 
       if (error) {
         console.error('Error fetching discovery profiles:', error);
@@ -109,32 +106,24 @@ export const useSocial = () => {
         return;
       }
 
-      console.log('Raw profiles from database:', profiles);
       console.log('Found profiles for discovery:', profiles?.length || 0);
       
       if (profiles && profiles.length > 0) {
-        // Filter out profiles that don't have essential information
         const completeProfiles = profiles.filter(profile => 
-          profile.full_name && 
-          profile.department && 
+          profile.full_name?.trim() && 
+          profile.department?.trim() && 
           profile.academic_year && 
-          profile.bio &&
-          profile.full_name.trim() !== '' &&
-          profile.department.trim() !== '' &&
-          profile.bio.trim() !== ''
+          profile.bio?.trim()
         );
 
-        console.log('Complete profiles after filtering:', completeProfiles.length);
-        
         if (completeProfiles.length > 0) {
-          // Shuffle profiles for better variety
           const shuffledProfiles = completeProfiles
             .map(profile => ({ profile, sort: Math.random() }))
             .sort((a, b) => a.sort - b.sort)
             .map(({ profile }) => profile);
           
           setDiscoveryProfiles(shuffledProfiles);
-          console.log('Set discovery profiles:', shuffledProfiles);
+          console.log('Set discovery profiles:', shuffledProfiles.length);
           
           toast({
             title: 'Profiles Loaded!',
@@ -142,8 +131,6 @@ export const useSocial = () => {
           });
         } else {
           setDiscoveryProfiles([]);
-          console.log('No complete profiles found');
-          
           toast({
             title: 'No Complete Profiles',
             description: 'Other users need to complete their profiles to appear here.',
@@ -151,29 +138,10 @@ export const useSocial = () => {
         }
       } else {
         setDiscoveryProfiles([]);
-        console.log('No profiles available for discovery');
-        
-        // Check if there are ANY other profiles in the database
-        const { data: allProfiles, error: allError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .neq('id', user.id);
-          
-        console.log('All other profiles in database:', allProfiles);
-        
-        if (allError) {
-          console.error('Error checking all profiles:', allError);
-        } else if (allProfiles && allProfiles.length === 0) {
-          toast({
-            title: 'No Other Users',
-            description: 'You are the first user! More people will join soon.',
-          });
-        } else {
-          toast({
-            title: 'Profiles Incomplete',
-            description: 'Other users are still completing their profiles. Check back later!',
-          });
-        }
+        toast({
+          title: 'No Other Users',
+          description: 'Be the first to start connecting! More people will join soon.',
+        });
       }
     } catch (error) {
       console.error('Error in fetchDiscoveryProfiles:', error);
@@ -187,7 +155,6 @@ export const useSocial = () => {
     }
   };
 
-  // Enhanced like functionality with real-time updates
   const likeProfile = async (profileId: string) => {
     if (!user) {
       console.log('No user found for liking');
@@ -203,7 +170,7 @@ export const useSocial = () => {
         .select('id')
         .eq('liker_id', user.id)
         .eq('liked_id', profileId)
-        .single();
+        .maybeSingle();
 
       if (existingLike) {
         console.log('Profile already liked');
@@ -236,17 +203,35 @@ export const useSocial = () => {
         .select('*')
         .eq('liker_id', profileId)
         .eq('liked_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (mutualLike) {
-        toast({
-          title: '🎉 It\'s a Match!',
-          description: 'You can now start chatting!',
-        });
-        // Refresh matches after a brief delay
-        setTimeout(() => {
-          fetchMatches();
-        }, 1000);
+        // Create match manually if trigger doesn't work
+        const { error: matchError } = await supabase
+          .from('matches')
+          .insert({
+            user1_id: user.id < profileId ? user.id : profileId,
+            user2_id: user.id < profileId ? profileId : user.id
+          });
+
+        if (!matchError) {
+          // Create conversation
+          const { error: convError } = await supabase
+            .from('conversations')
+            .insert({
+              user1_id: user.id < profileId ? user.id : profileId,
+              user2_id: user.id < profileId ? profileId : user.id
+            });
+
+          if (!convError) {
+            toast({
+              title: '🎉 It\'s a Match!',
+              description: 'You can now start chatting!',
+            });
+            fetchMatches();
+            fetchConversations();
+          }
+        }
       } else {
         toast({
           title: '❤️ Profile Liked',
@@ -254,9 +239,7 @@ export const useSocial = () => {
         });
       }
 
-      // Remove liked profile from discovery immediately
       setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
-      
       return true;
     } catch (error) {
       console.error('Error in likeProfile:', error);
@@ -269,7 +252,6 @@ export const useSocial = () => {
     }
   };
 
-  // Super-like functionality
   const superLikeProfile = async (profileId: string) => {
     if (!user) return false;
 
@@ -280,8 +262,7 @@ export const useSocial = () => {
         .from('user_likes')
         .insert({
           liker_id: user.id,
-          liked_id: profileId,
-          is_super_like: true
+          liked_id: profileId
         })
         .select();
 
@@ -303,13 +284,11 @@ export const useSocial = () => {
     }
   };
 
-  // Skip a profile
   const skipProfile = (profileId: string) => {
     console.log('Skipping profile:', profileId);
     setDiscoveryProfiles(prev => prev.filter(p => p.id !== profileId));
   };
 
-  // Fetch matches with improved error handling
   const fetchMatches = async () => {
     if (!user) return;
 
@@ -334,12 +313,10 @@ export const useSocial = () => {
         return;
       }
 
-      // Get the other user IDs from matches
       const otherUserIds = matchData.map(match => 
         match.user1_id === user.id ? match.user2_id : match.user1_id
       );
 
-      // Fetch profiles for these users
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -350,7 +327,6 @@ export const useSocial = () => {
         return;
       }
 
-      // Combine match data with profiles
       const formattedMatches = matchData.map(match => {
         const otherUserId = match.user1_id === user.id ? match.user2_id : match.user1_id;
         const profile = profiles?.find(p => p.id === otherUserId);
@@ -376,7 +352,6 @@ export const useSocial = () => {
     }
   };
 
-  // Fetch conversations with improved query
   const fetchConversations = async () => {
     if (!user) return;
 
@@ -401,12 +376,10 @@ export const useSocial = () => {
         return;
       }
 
-      // Get the other user IDs from conversations
       const otherUserIds = convData.map(conv => 
         conv.user1_id === user.id ? conv.user2_id : conv.user1_id
       );
 
-      // Fetch profiles for these users
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -463,7 +436,6 @@ export const useSocial = () => {
     }
   };
 
-  // Fetch messages for a conversation
   const fetchMessages = async (conversationId: string) => {
     if (!user) return;
 
@@ -496,7 +468,6 @@ export const useSocial = () => {
     }
   };
 
-  // Send a message
   const sendMessage = async (conversationId: string, content: string) => {
     if (!user || !content.trim()) return false;
 
@@ -535,13 +506,13 @@ export const useSocial = () => {
     }
   };
 
-  // Enhanced real-time subscriptions
+  // Real-time subscriptions
   useEffect(() => {
     if (!user) return;
 
-    console.log('Setting up enhanced real-time subscriptions for user:', user.id);
+    console.log('Setting up real-time subscriptions for user:', user.id);
 
-    // Subscribe to new matches with instant notifications
+    // Subscribe to new matches
     const matchesChannel = supabase
       .channel('matches-changes')
       .on(
@@ -565,7 +536,7 @@ export const useSocial = () => {
       )
       .subscribe();
 
-    // Subscribe to new messages with real-time updates
+    // Subscribe to new messages
     const messagesChannel = supabase
       .channel('messages-changes')
       .on(
@@ -579,11 +550,9 @@ export const useSocial = () => {
           console.log('New message detected:', payload);
           const newMessage = payload.new as Message;
           
-          // Only handle messages not sent by current user
           if (newMessage.sender_id !== user.id) {
             fetchConversations();
             
-            // If viewing the conversation, refresh messages
             setMessages(prev => {
               if (prev.length > 0 && prev[0].conversation_id === newMessage.conversation_id) {
                 return [...prev, newMessage];
@@ -600,7 +569,7 @@ export const useSocial = () => {
       )
       .subscribe();
 
-    // Subscribe to new likes for instant feedback
+    // Subscribe to new likes
     const likesChannel = supabase
       .channel('likes-changes')
       .on(
@@ -614,7 +583,6 @@ export const useSocial = () => {
           console.log('New like detected:', payload);
           const newLike = payload.new as any;
           
-          // If someone liked the current user
           if (newLike.liked_id === user.id) {
             toast({
               title: '❤️ Someone Liked You!',
@@ -626,7 +594,7 @@ export const useSocial = () => {
       .subscribe();
 
     return () => {
-      console.log('Cleaning up enhanced real-time subscriptions');
+      console.log('Cleaning up real-time subscriptions');
       supabase.removeChannel(matchesChannel);
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(likesChannel);

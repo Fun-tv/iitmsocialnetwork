@@ -39,12 +39,13 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
 
       if (!existingConv) {
         // Create conversation if it doesn't exist
-        const { error: createError } = await supabase
+        const { data: newConv, error: createError } = await supabase
           .from('conversations')
           .insert({
             user1_id: user.id < match.profile.id ? user.id : match.profile.id,
             user2_id: user.id < match.profile.id ? match.profile.id : user.id
-          });
+          })
+          .select();
 
         if (createError) {
           console.error('Error creating conversation:', createError);
@@ -55,6 +56,8 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
           });
           return;
         }
+
+        console.log('Created new conversation:', newConv);
       }
 
       if (onStartChat) {
