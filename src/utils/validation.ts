@@ -28,3 +28,21 @@ export const authSchema = z.object({
 
 export type ProfileFormData = z.infer<typeof profileSchema>;
 export type AuthFormData = z.infer<typeof authSchema>;
+
+// Additional validation functions for Landing.tsx
+export const validateIITMEmail = (email: string): boolean => {
+  return email.endsWith('@ds.study.iitm.ac.in') || email.endsWith('@es.study.iitm.ac.in');
+};
+
+export const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  
+  if (password.length < 6) {
+    errors.push('Password must be at least 6 characters long');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
