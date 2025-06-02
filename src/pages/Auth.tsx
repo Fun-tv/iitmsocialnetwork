@@ -9,7 +9,7 @@ import { validateIITMEmail, validatePassword } from '@/utils/validation';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Heart, Users, MessageCircle, Star } from 'lucide-react';
 
-const Landing = () => {
+const Auth = () => {
   const { signUp, signIn } = useAuth();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
@@ -216,4 +216,4 @@ const Landing = () => {
   );
 };
 
-export default Landing;
+export default Auth;
