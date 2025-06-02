@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
@@ -85,7 +84,9 @@ const OnboardingFlow = () => {
     if (!user) return;
 
     try {
-      // Update profile with all form data
+      console.log('Completing onboarding for user:', user.id);
+      
+      // Update profile with all form data and ensure it's discoverable
       const profileData = {
         full_name: formData.full_name,
         age: parseInt(formData.age),
@@ -96,13 +97,15 @@ const OnboardingFlow = () => {
         interests: formData.interests,
         roll_number: formData.roll_number,
         profile_picture_url: formData.profile_picture_url,
-        is_profile_complete: true
+        is_profile_complete: true,
+        verification_status: 'pending' as const // Set to pending so user appears in discovery
       };
 
+      console.log('Updating profile with data:', profileData);
       await updateProfile(profileData);
 
       // Mark onboarding as complete (step 4)
-      await supabase
+      const { error: onboardingError } = await supabase
         .from('onboarding_progress')
         .update({ 
           step_completed: 4,
@@ -111,13 +114,35 @@ const OnboardingFlow = () => {
         })
         .eq('user_id', user.id);
 
+      if (onboardingError) {
+        console.error('Error updating onboarding progress:', onboardingError);
+        throw onboardingError;
+      }
+
+      // Verify the profile was created/updated correctly
+      const { data: verificationData, error: verificationError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (verificationError) {
+        console.error('Error verifying profile:', verificationError);
+      } else {
+        console.log('Profile successfully created/updated:', verificationData);
+      }
+
       toast({
-        title: '🎉 Welcome to UniConnect!',
-        description: 'Your profile is complete. Start discovering amazing people!',
+        title: '🎉 Welcome to IITM Social Network!',
+        description: 'Your profile is complete and you can now start discovering amazing people!',
       });
 
-      // Force page reload to trigger proper navigation
-      window.location.reload();
+      // Small delay to ensure all database operations complete
+      setTimeout(() => {
+        console.log('Reloading page to trigger proper navigation...');
+        window.location.reload();
+      }, 1000);
+
     } catch (error) {
       console.error('Error completing onboarding:', error);
       toast({
@@ -377,7 +402,7 @@ const OnboardingFlow = () => {
               <Sparkles size={48} className="text-yellow-400 mx-auto mb-4" />
             </div>
             <CardTitle className="text-2xl text-white">You're All Set!</CardTitle>
-            <p className="text-gray-300">Welcome to UniConnect</p>
+            <p className="text-gray-300">Welcome to IITM Social Network</p>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
