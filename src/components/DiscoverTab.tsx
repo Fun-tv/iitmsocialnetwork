@@ -19,35 +19,35 @@ const DiscoverTab = () => {
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [hasTriedCreatingProfiles, setHasTriedCreatingProfiles] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
+  // Initialize profile fetching when user is available
   useEffect(() => {
-    console.log('DiscoverTab mounted, fetching profiles...');
-    if (user) {
+    if (user && !hasInitialized) {
+      console.log('DiscoverTab initializing for user:', user.id);
+      setHasInitialized(true);
       fetchDiscoveryProfiles();
     }
-  }, [user]);
+  }, [user, hasInitialized, fetchDiscoveryProfiles]);
 
-  // Enhanced profile creation logic
+  // Automatically create test profiles if none exist (only once per session)
   useEffect(() => {
-    if (!loading && discoveryProfiles.length === 0 && !hasTriedCreatingProfiles && user) {
-      setHasTriedCreatingProfiles(true);
+    if (!loading && discoveryProfiles.length === 0 && hasInitialized && user) {
       console.log('No profiles found, attempting to create test profiles...');
       
       createTestProfiles().then((success) => {
         console.log('Test profile creation result:', success);
-        setTimeout(() => {
-          console.log('Refetching profiles after test creation...');
-          fetchDiscoveryProfiles();
-        }, 2000);
+        if (success) {
+          setTimeout(() => {
+            console.log('Refetching profiles after test creation...');
+            fetchDiscoveryProfiles();
+          }, 2000);
+        }
       }).catch((error) => {
         console.error('Error during test profile creation:', error);
-        setTimeout(() => {
-          fetchDiscoveryProfiles();
-        }, 1000);
       });
     }
-  }, [loading, discoveryProfiles.length, hasTriedCreatingProfiles, user]);
+  }, [loading, discoveryProfiles.length, hasInitialized, user, fetchDiscoveryProfiles]);
 
   const handleLike = async (id: string) => {
     setIsActionLoading(true);
@@ -90,7 +90,7 @@ const DiscoverTab = () => {
   const resetStack = () => {
     console.log('Resetting discovery stack...');
     setCurrentIndex(0);
-    setHasTriedCreatingProfiles(false);
+    setHasInitialized(false);
     fetchDiscoveryProfiles();
   };
 
@@ -100,10 +100,10 @@ const DiscoverTab = () => {
       loading,
       profilesCount: discoveryProfiles.length,
       currentIndex,
-      hasTriedCreatingProfiles,
+      hasInitialized,
       user: user?.id
     });
-  }, [loading, discoveryProfiles.length, currentIndex, hasTriedCreatingProfiles, user]);
+  }, [loading, discoveryProfiles.length, currentIndex, hasInitialized, user]);
 
   if (loading) {
     return (
@@ -125,9 +125,9 @@ const DiscoverTab = () => {
           <div className="space-y-2">
             <h3 className="text-2xl font-bold text-white">Looking for connections...</h3>
             <p className="text-gray-400 max-w-sm">
-              {hasTriedCreatingProfiles 
-                ? "Setting up your discovery feed. This may take a moment..."
-                : "No profiles available right now. Let's refresh to find people to connect with!"
+              {hasInitialized 
+                ? "We're setting up your discovery feed with new profiles..."
+                : "Let's find some amazing people for you to connect with!"
               }
             </p>
             <p className="text-gray-500 text-xs mt-4">
