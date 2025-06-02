@@ -37,6 +37,8 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
         console.error('Error checking existing conversation:', convError);
       }
 
+      let conversationId = existingConv?.id;
+
       if (!existingConv) {
         // Create conversation if it doesn't exist
         const { data: newConv, error: createError } = await supabase
@@ -45,7 +47,8 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
             user1_id: user.id < match.profile.id ? user.id : match.profile.id,
             user2_id: user.id < match.profile.id ? match.profile.id : user.id
           })
-          .select();
+          .select()
+          .single();
 
         if (createError) {
           console.error('Error creating conversation:', createError);
@@ -57,11 +60,12 @@ const MatchesTab = ({ onStartChat }: MatchesTabProps) => {
           return;
         }
 
+        conversationId = newConv.id;
         console.log('Created new conversation:', newConv);
       }
 
       if (onStartChat) {
-        onStartChat(match.id);
+        onStartChat(conversationId);
       } else {
         toast({
           title: 'Chat Ready!',

@@ -206,32 +206,15 @@ export const useSocial = () => {
         .maybeSingle();
 
       if (mutualLike) {
-        // Create match manually if trigger doesn't work
-        const { error: matchError } = await supabase
-          .from('matches')
-          .insert({
-            user1_id: user.id < profileId ? user.id : profileId,
-            user2_id: user.id < profileId ? profileId : user.id
-          });
-
-        if (!matchError) {
-          // Create conversation
-          const { error: convError } = await supabase
-            .from('conversations')
-            .insert({
-              user1_id: user.id < profileId ? user.id : profileId,
-              user2_id: user.id < profileId ? profileId : user.id
-            });
-
-          if (!convError) {
-            toast({
-              title: '🎉 It\'s a Match!',
-              description: 'You can now start chatting!',
-            });
-            fetchMatches();
-            fetchConversations();
-          }
-        }
+        toast({
+          title: '🎉 It\'s a Match!',
+          description: 'You can now start chatting!',
+        });
+        // Refresh matches and conversations
+        setTimeout(() => {
+          fetchMatches();
+          fetchConversations();
+        }, 1000);
       } else {
         toast({
           title: '❤️ Profile Liked',
@@ -593,11 +576,32 @@ export const useSocial = () => {
       )
       .subscribe();
 
+    // Subscribe to conversation updates
+    const conversationsChannel = supabase
+      .channel('conversations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'conversations'
+        },
+        (payload) => {
+          console.log('Conversation update detected:', payload);
+          const conversation = payload.new as any;
+          if (conversation && (conversation.user1_id === user.id || conversation.user2_id === user.id)) {
+            fetchConversations();
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       console.log('Cleaning up real-time subscriptions');
       supabase.removeChannel(matchesChannel);
       supabase.removeChannel(messagesChannel);
       supabase.removeChannel(likesChannel);
+      supabase.removeChannel(conversationsChannel);
     };
   }, [user]);
 
